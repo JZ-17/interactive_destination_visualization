@@ -6,7 +6,14 @@
 // we use the same definition so our numbers and its `Twin (...)` columns agree.
 import { csv, json } from 'd3-fetch';
 import { feature } from 'topojson-client';
+import { base } from '$app/paths';
 import { COORDS } from './coords.js';
+
+// Static files sit next to the app, not at the domain root. A leading-slash
+// path only works when the site is served from "/", so it breaks the moment
+// the build is hosted under a sub-path. `base` is '' locally and the app's
+// own prefix when hosted.
+const asset = (file) => `${base}/${file}`;
 
 /** The ten theme lexicons, in the order the pipeline lists them. */
 export const THEMES = [
@@ -177,7 +184,7 @@ function meanSd(values) {
  * need. Returns { cities, themeStats, corpusThemeMean }.
  */
 export async function loadCities(fetchImpl = fetch) {
-  const rows = await csv('/city_master.csv', { fetch: fetchImpl });
+  const rows = await csv(asset('city_master.csv'), { fetch: fetchImpl });
 
   const cities = rows.map((r) => {
     const place = COORDS[r.City];
@@ -317,7 +324,7 @@ export async function loadCities(fetchImpl = fetch) {
 
 /** World land outline for the map view, as GeoJSON. */
 export async function loadLand(fetchImpl = fetch) {
-  const topo = await json('/land-110m.json', { fetch: fetchImpl });
+  const topo = await json(asset('land-110m.json'), { fetch: fetchImpl });
   return feature(topo, topo.objects.land);
 }
 
