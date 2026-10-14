@@ -2,17 +2,16 @@
   /**
    * Josh's sketch 15, with one correction from the methodology: similarity is
    * cosine on descriptive TF-IDF and the corpus maximum is 0.20, so the sketch's
-   * "Overall similarity 95%" is not a number this data can produce. We show the
-   * four twin definitions instead, and let them disagree in public.
+   * "Overall similarity 95%" is not a number this data can produce, and no
+   * single similarity score is shown.
    *
-   * Theme comparison is a diverging bar chart: themes down the middle, city A's
+   * Comparison is a diverging bar chart: themes down the middle, city A's
    * rate to the left, city B's to the right, on one shared length scale with a
    * zero baseline at the centre.
    */
   import { scaleLinear } from 'd3-scale';
   import {
-    THEMES, PERSONALITIES, TWIN_METHODS,
-    themeProfileDistance, personalityProfileDistance,
+    THEMES, PERSONALITIES,
     greatCircleKm, sharedDescriptiveWords
   } from './data.js';
 
@@ -43,20 +42,7 @@
   let len = $derived(scaleLinear().domain([0, themeMax]).range([0, ARM]));
 
   let km = $derived(a && b ? greatCircleKm(a, b) : 0);
-  let themeDist = $derived(a && b ? themeProfileDistance(a, b) : 0);
-  let voiceDist = $derived(a && b ? personalityProfileDistance(a, b) : 0);
   let shared = $derived(a && b ? sharedDescriptiveWords(a, b) : []);
-
-  /** Where this pair ranks among a's 49 possible partners, 1 = closest. */
-  function rankOf(city, other, fn) {
-    const all = cities
-      .filter((c) => c.city !== city.city)
-      .map((c) => fn(city, c))
-      .sort((x, y) => x - y);
-    return all.indexOf(fn(city, other)) + 1;
-  }
-  let themeRank = $derived(a && b ? rankOf(a, b, themeProfileDistance) : 0);
-  let voiceRank = $derived(a && b ? rankOf(a, b, personalityProfileDistance) : 0);
 
   /** The strongest rhetorical moves a city leans on, for the voice read-out. */
   function topVoice(c, n = 3) {
@@ -107,59 +93,6 @@
       {#if a.region !== b.region}· different regions{:else}· same region{/if}
     </p>
 
-    <!-- Four definitions of "twin", and they disagree. -->
-    <section>
-      <h3>Does anything call them twins?</h3>
-      <table class="twins">
-        <thead>
-          <tr>
-            <th>Definition</th>
-            <th>{a.city}'s twin</th>
-            <th>{b.city}'s twin</th>
-            <th>This pair</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each TWIN_METHODS as m}
-            {@const aT = a.twins[m.id]}
-            {@const bT = b.twins[m.id]}
-            {@const hit = aT.partner === b.city || bT.partner === a.city}
-            <tr class:hit>
-              <td>
-                <strong>{m.label}</strong>
-                <span class="q">{m.question}</span>
-              </td>
-              <td class:match={aT.partner === b.city}>
-                {aT.partner}
-                <span class="score">{fmt(aT.score, m.lowerIsCloser ? 2 : 3)} {m.unit}</span>
-              </td>
-              <td class:match={bT.partner === a.city}>
-                {bT.partner}
-                <span class="score">{fmt(bT.score, m.lowerIsCloser ? 2 : 3)} {m.unit}</span>
-              </td>
-              <td>
-                {#if m.id === 'theme'}
-                  {fmt(themeDist)} sd<span class="score">#{themeRank} of 49 closest</span>
-                {:else if m.id === 'personality'}
-                  {fmt(voiceDist)} sd<span class="score">#{voiceRank} of 49 closest</span>
-                {:else if hit}
-                  yes
-                {:else}
-                  <span class="na">—</span>
-                {/if}
-              </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-      <p class="note caveat">
-        Cosine similarity peaks at <strong>0.20</strong> across the whole corpus, so
-        read it as a ranking, not a percentage — there is no such thing as two
-        cities being "95% alike" here. The two <em>sd apart</em> rows are
-        distances: lower is closer. The four methods pick the same twin for at
-        most 8 of the 50 cities.
-      </p>
-    </section>
 
     <!-- Diverging bars: zero baseline down the centre, one shared length scale. -->
     <section>
@@ -286,23 +219,6 @@
 
   h3 { color: var(--text-secondary); margin-bottom: 7px; }
 
-  table.twins { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
-  .twins th {
-    text-align: left; font-weight: 600; color: var(--text-muted);
-    font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em;
-    padding: 0 8px 5px 0; border-bottom: 1px solid var(--border);
-  }
-  .twins td {
-    padding: 7px 8px 7px 0; vertical-align: top;
-    border-bottom: 1px solid var(--border);
-  }
-  .twins tr.hit td { background: var(--wash); }
-  .twins td.match { font-weight: 650; }
-  .q { display: block; color: var(--text-muted); font-size: 0.68rem; margin-top: 2px; }
-  .score { display: block; color: var(--text-muted); font-size: 0.68rem; margin-top: 2px;
-           font-variant-numeric: tabular-nums; }
-  .na { color: var(--text-muted); }
-  .caveat { margin-top: 8px; }
 
   svg { width: 100%; height: auto; }
   .stripe { fill: transparent; }

@@ -4,7 +4,7 @@
    *
    * A large orthographic globe is the entry point and the only way in. Click a
    * city to select it; click a second and every comparison view below fills in
-   * at once — the twin table, the theme-by-theme diverging bars, and the
+   * at once — the theme-by-theme diverging bars, the shared vocabulary, and the
    * scatter with both cities called out.
    *
    *   globe click --SELECT-->  head-to-head + scatter callouts + arc
@@ -75,8 +75,8 @@
       <h1>Pick two cities anywhere on Earth. Do they sound alike?</h1>
       <p class="lede">
         Spin the globe and click two cities. Everything below fills in for that
-        pair: whether any measure calls them twins, what each one talks about,
-        and where both sit against the other forty-eight.
+        pair: what each one talks about, how each one sells itself, and where
+        both sit against the other forty-eight.
       </p>
     </div>
     <nav>
@@ -177,9 +177,8 @@
     </section>
 
     <footer class="note">
-      Theme measures are mentions per 1,000 words. "Twin" has four competing
-      definitions and they rarely agree — that disagreement is the finding, not
-      a bug. Source: official tourism-board homepage text, 50 cities.
+      Theme measures are mentions per 1,000 words. Source: official
+      tourism-board homepage text, 50 cities.
     </footer>
   {/if}
 </main>

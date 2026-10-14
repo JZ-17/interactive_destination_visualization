@@ -50,18 +50,16 @@
     <h3>What this data will and will not support</h3>
     <ul class="note">
       <li>
-        Similarity is cosine on descriptive TF-IDF and tops out at
-        <strong>0.20</strong> across the whole corpus. It ranks pairs; it is not a
-        percentage, and no two cities here are "95% alike".
+        Similarity here is cosine on descriptive TF-IDF and tops out at
+        <strong>0.20</strong> across the whole corpus — a ranking, not a
+        percentage. No two cities are "95% alike", so we show no similarity
+        score at all.
       </li>
       <li>
-        There are <strong>four definitions of "twin"</strong> and they pick the
-        same partner for at most 8 of the 50 cities. Both prototypes show all four.
-      </li>
-      <li>
-        The popular/hidden label is hand-assigned and about 10 of 50 disagree with
-        their own Wikipedia traffic. Prototype B filters on
-        <strong>obscurity</strong>, an outside measure, instead.
+        The popular/hidden label is hand-assigned and about 10 of 50 disagree
+        with their own Wikipedia traffic (Chicago is tagged "hidden" on 3.6M
+        views a year). <strong>Obscurity</strong>, an outside measure, is
+        offered as a sort key in Prototype A.
       </li>
       <li>
         <strong>Distinctiveness</strong> and <strong>vocabulary richness</strong>
