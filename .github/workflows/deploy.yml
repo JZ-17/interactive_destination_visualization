@@ -27,7 +27,11 @@ jobs:
       - run: npm run build
       # Pages runs Jekyll by default, which would skip some build output.
       - run: touch build/.nojekyll
+      # enablement lets the action turn Pages on itself. Without it, the very
+      # first run fails if the repo's Pages source has not been set by hand yet.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: build
