@@ -1,20 +1,19 @@
 <script>
   /**
-   * PROTOTYPE A — "Start from a type, narrow down."
+   * PROTOTYPE A — "Rank the 50."
    *
-   * Three views, one shared selection, laid out as a classic faceted dashboard.
-   * The grid on the left is the control surface: picking a group FILTERS the
-   * scatter, the stat row and the comparison pool. Hovering anywhere LINKS
-   * (highlights) without removing anything.
+   * Pick a theme; all 50 cities sort into a card gallery, highest or lowest
+   * first. Reading down a sorted column needs no chart literacy, which suits
+   * the audience better than a scatter does for "who leads on X?".
    *
-   *   grid  --filter-->  stat row + scatter
-   *   any view --link-->  every view (hover)
-   *   any view --pick-->  head-to-head (up to two cities)
+   *   theme + direction --SORT----->  card order
+   *   category pills    --FILTER--->  cards + the summary numbers
+   *   hover             --LINK----->  cards (highlight, nothing removed)
+   *   two clicks        --SELECT--->  head-to-head
    */
   import { onMount } from 'svelte';
-  import { loadCities, THEMES, axisById } from '$lib/data.js';
-  import ArchetypeGrid from '$lib/ArchetypeGrid.svelte';
-  import ThemeScatter from '$lib/ThemeScatter.svelte';
+  import { loadCities, AXIS_OPTIONS, axisById } from '$lib/data.js';
+  import CardGrid from '$lib/CardGrid.svelte';
   import HeadToHead from '$lib/HeadToHead.svelte';
   import Legend from '$lib/Legend.svelte';
 
@@ -22,16 +21,17 @@
   let error = $state(null);
 
   // --- shared selection state, one owner each ---------------------------
-  let groupBy = $state('archetype');
-  let selectedGroup = $state(null);  // FILTER
-  let hoveredCity = $state(null);    // LINK
-  let picks = $state([]);            // up to two, for the comparison
-  let xKey = $state('theme:History');
-  let yKey = $state('theme:Food');
+  let measureKey = $state('theme:Food'); // SORT
+  let direction = $state('desc');        // SORT
+  let categoryFilter = $state('all');    // FILTER: all | popular | hidden
+  let hoveredCity = $state(null);        // LINK
+  let picks = $state([]);                // up to two, for the comparison
+
+  let measure = $derived(axisById(measureKey));
 
   // --- one derived subset; every filtered view reads this ---------------
   let filtered = $derived(
-    selectedGroup ? cities.filter((c) => c[groupBy] === selectedGroup) : cities
+    categoryFilter === 'all' ? cities : cities.filter((c) => c.category === categoryFilter)
   );
   let filteredNames = $derived(new Set(filtered.map((c) => c.city)));
 
@@ -42,16 +42,18 @@
   // Aggregates recompute over `filtered`, never over the full 50.
   let stats = $derived.by(() => {
     if (!filtered.length) return null;
-    const n = filtered.length;
-    const gems = filtered.filter((c) => c.category === 'hidden').length;
-    const obsc = [...filtered.map((c) => c.obscurity)].sort((a, b) => a - b);
-    const median = obsc[Math.floor(n / 2)];
-    const themeTotals = THEMES.map((t) => ({
-      t,
-      v: filtered.reduce((s, c) => s + c.themes[t], 0) / n
-    })).sort((a, b) => b.v - a.v);
-    return { n, gems, median, top: themeTotals[0], second: themeTotals[1] };
+    const vals = filtered.map((c) => measure.get(c)).sort((a, b) => a - b);
+    const top = [...filtered].sort((a, b) => measure.get(b) - measure.get(a));
+    return {
+      n: filtered.length,
+      median: vals[Math.floor(vals.length / 2)],
+      leader: top[0],
+      trailer: top[top.length - 1]
+    };
   });
+
+  const groups = [...new Set(AXIS_OPTIONS.map((a) => a.group))];
+  let decimals = $derived(stats && stats.median <= 1.5 ? 2 : 1);
 
   function pick(name) {
     if (picks.includes(name)) picks = picks.filter((p) => p !== name);
@@ -68,17 +70,17 @@
   });
 </script>
 
-<svelte:head><title>Prototype A — Start from a type</title></svelte:head>
+<svelte:head><title>Prototype A — Rank the 50</title></svelte:head>
 
 <main>
   <header class="top">
     <div>
-      <p class="eyebrow">Prototype A · faceted dashboard</p>
-      <h1>What is this city trying to be known for?</h1>
+      <p class="eyebrow">Prototype A · sorted card gallery</p>
+      <h1>Which cities push this hardest?</h1>
       <p class="lede">
-        Fifty official tourism sites, scraped and counted. Pick a type on the left
-        to narrow everything else down; click any two cities to put them head to
-        head.
+        Pick a theme and all fifty tourism boards sort by how much they talk
+        about it. Flip the order to see who barely mentions it at all. Click any
+        two cards to put those cities head to head.
       </p>
     </div>
     <nav>
@@ -93,23 +95,51 @@
     <p class="panel note">Loading 50 cities…</p>
   {:else}
     <div class="controls panel">
-      <div class="toggle">
-        <span class="eyebrow">Group cities by</span>
-        <div>
-          <button
-            aria-pressed={groupBy === 'archetype'}
-            onclick={() => { groupBy = 'archetype'; selectedGroup = null; }}
-          >What they talk about</button>
-          <button
-            aria-pressed={groupBy === 'personality'}
-            onclick={() => { groupBy = 'personality'; selectedGroup = null; }}
-          >How they sell it</button>
+      <label class="field">
+        <span class="eyebrow">Sort by</span>
+        <select bind:value={measureKey}>
+          {#each groups as g}
+            <optgroup label={g}>
+              {#each AXIS_OPTIONS.filter((a) => a.group === g) as a}
+                <option value={a.id}>{a.label}</option>
+              {/each}
+            </optgroup>
+          {/each}
+        </select>
+      </label>
+
+      <div class="field">
+        <span class="eyebrow">Order</span>
+        <div class="segmented">
+          <button aria-pressed={direction === 'desc'} onclick={() => (direction = 'desc')}>
+            Most first
+          </button>
+          <button aria-pressed={direction === 'asc'} onclick={() => (direction = 'asc')}>
+            Least first
+          </button>
         </div>
       </div>
-      <Legend />
+
+      <div class="field">
+        <span class="eyebrow">Show</span>
+        <div class="segmented">
+          <button aria-pressed={categoryFilter === 'all'} onclick={() => (categoryFilter = 'all')}>
+            All 50
+          </button>
+          <button aria-pressed={categoryFilter === 'popular'} onclick={() => (categoryFilter = 'popular')}>
+            Big destinations
+          </button>
+          <button aria-pressed={categoryFilter === 'hidden'} onclick={() => (categoryFilter = 'hidden')}>
+            Hidden gems
+          </button>
+        </div>
+      </div>
+
+      {#if picks.length}
+        <button class="pushed" onclick={() => (picks = [])}>Clear selection</button>
+      {/if}
     </div>
 
-    <!-- Aggregates over the filtered subset. -->
     <div class="stats panel" aria-live="polite">
       <div class="stat">
         <span class="eyebrow">Showing</span>
@@ -117,67 +147,40 @@
         <span class="unit">of {cities.length} cities</span>
       </div>
       <div class="stat">
-        <span class="eyebrow">Hidden gems</span>
-        <strong>{stats.gems}</strong>
-        <span class="unit">{Math.round((stats.gems / stats.n) * 100)}% of the selection</span>
+        <span class="eyebrow">Leads on {measure.label}</span>
+        <strong class="small">{stats.leader.city}</strong>
+        <span class="unit">{measure.get(stats.leader).toFixed(decimals)} · {measure.unit}</span>
       </div>
       <div class="stat">
-        <span class="eyebrow">Median obscurity</span>
-        <strong>{stats.median.toFixed(2)}</strong>
-        <span class="unit">0 famous → 1 obscure</span>
+        <span class="eyebrow">Median</span>
+        <strong>{stats.median.toFixed(decimals)}</strong>
+        <span class="unit">{measure.unit}</span>
       </div>
-      <div class="stat wide">
-        <span class="eyebrow">Talks most about</span>
-        <strong>{stats.top.t}</strong>
-        <span class="unit">
-          {stats.top.v.toFixed(1)} per 1,000 words · then {stats.second.t}
-          ({stats.second.v.toFixed(1)})
-        </span>
+      <div class="stat">
+        <span class="eyebrow">Barely mentions it</span>
+        <strong class="small">{stats.trailer.city}</strong>
+        <span class="unit">{measure.get(stats.trailer).toFixed(decimals)} · {measure.unit}</span>
       </div>
-      {#if selectedGroup}
-        <button class="clear" onclick={() => (selectedGroup = null)}>
-          Clear "{selectedGroup}"
-        </button>
-      {/if}
+      <div class="legend-slot"><Legend note={false} /></div>
     </div>
 
-    <div class="grid-layout">
-      <section class="panel left">
-        <ArchetypeGrid
-          {cities}
-          {groupBy}
-          {selectedGroup}
-          {hoveredCity}
-          {picks}
-          onselectgroup={(g) => (selectedGroup = g)}
-          onhovercity={(c) => (hoveredCity = c)}
-          onpickcity={pick}
-        />
-        <p class="note hint">
-          Click a row to keep only those cities. Click a dot to add that city to
-          the comparison below.
-        </p>
-      </section>
-
-      <section class="panel right">
-        <ThemeScatter
-          cities={filtered}
-          allCities={cities}
-          {xKey}
-          {yKey}
-          {hoveredCity}
-          {picks}
-          showExcluded={false}
-          onhovercity={(c) => (hoveredCity = c)}
-          onpickcity={pick}
-          onchangeaxis={(which, id) => (which === 'x' ? (xKey = id) : (yKey = id))}
-        />
-        <p class="note hint">
-          Filtered to <strong>{filtered.length}</strong> cities{#if selectedGroup}{' · '}{selectedGroup}{/if}.
-          Axes stay fixed to all 50 so the frame does not jump as you filter.
-        </p>
-      </section>
-    </div>
+    <section>
+      <CardGrid
+        {cities}
+        visibleNames={filteredNames}
+        {measure}
+        {direction}
+        {hoveredCity}
+        {picks}
+        onhovercity={(c) => (hoveredCity = c)}
+        onpickcity={pick}
+      />
+      <p class="note hint">
+        The <strong>#</strong> on each card is its rank across all fifty, so it
+        does not change when you filter to one category. Bar length is the
+        city's value against the highest in the corpus.
+      </p>
+    </section>
 
     <section class="panel compare">
       <HeadToHead
@@ -190,9 +193,8 @@
     </section>
 
     <footer class="note">
-      Rates are per 1,000 words, so a long scrape and a short one are comparable.
-      Archetype is the theme a city over-indexes on, not the one it mentions most.
-      Source: official tourism-board homepage text, 50 cities.
+      Theme measures are mentions per 1,000 words, so a long scrape and a short
+      one are comparable. Source: official tourism-board homepage text, 50 cities.
     </footer>
   {/if}
 </main>
@@ -211,34 +213,24 @@
   .lede { margin-top: 7px; max-width: 62ch; color: var(--text-secondary); font-size: 0.86rem; line-height: 1.5; }
   nav { display: flex; gap: 14px; font-size: 0.78rem; white-space: nowrap; }
 
-  .controls {
-    display: flex; justify-content: space-between; align-items: center;
-    gap: 20px; flex-wrap: wrap;
-  }
-  .toggle { display: flex; flex-direction: column; gap: 5px; }
-  .toggle > div { display: flex; gap: 6px; }
+  .controls { display: flex; gap: 22px; align-items: flex-end; flex-wrap: wrap; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .segmented { display: flex; gap: 5px; }
+  .pushed { margin-left: auto; }
 
   .stats { display: flex; gap: 26px; align-items: flex-end; flex-wrap: wrap; }
   .stat { display: flex; flex-direction: column; gap: 1px; }
-  .stat strong { font-size: 1.5rem; font-weight: 650; line-height: 1.1; }
+  .stat strong { font-size: 1.5rem; font-weight: 650; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .stat strong.small { font-size: 1.05rem; padding-top: 5px; font-variant-numeric: normal; }
   .stat .unit { font-size: 0.7rem; color: var(--text-muted); }
-  .stat.wide strong { font-size: 1.05rem; padding-top: 6px; }
-  .clear { margin-left: auto; }
+  .legend-slot { margin-left: auto; }
 
-  .grid-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
-    gap: 14px;
-    align-items: stretch;
-  }
-  .left, .right { display: flex; flex-direction: column; gap: 10px; }
-  .hint { border-top: 1px solid var(--border); padding-top: 9px; margin-top: auto; }
-
+  .hint { border-top: 1px solid var(--border); padding-top: 9px; margin-top: 12px; }
   .error { color: var(--text-primary); }
   footer { border-top: 1px solid var(--border); padding-top: 12px; max-width: 72ch; }
 
   @media (max-width: 900px) {
-    .grid-layout { grid-template-columns: 1fr; }
     .top { flex-direction: column; gap: 12px; }
+    .legend-slot, .pushed { margin-left: 0; }
   }
 </style>

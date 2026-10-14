@@ -1,29 +1,23 @@
 <script>
   /**
-   * PROTOTYPE B — "Start from a city, follow the thread."
+   * PROTOTYPE B — "Spin the globe, pick two."
    *
-   * The same three views as Prototype A, recombined. Differences are
-   * deliberate, so the two can be compared:
+   * A large orthographic globe is the entry point and the only way in. Click a
+   * city to select it; click a second and every comparison view below fills in
+   * at once — the twin table, the theme-by-theme diverging bars, and the
+   * scatter with both cities called out.
    *
-   *   - Layout is a single stacked column, read top to bottom, instead of
-   *     side-by-side facets.
-   *   - The MAP is the entry point: clicking a city draws arcs to its four
-   *     twins. In A there is no geography at all.
-   *   - FILTERING moves to a brush over an external measure (Wikipedia
-   *     obscurity) instead of the archetype grid.
-   *   - The grid demotes to a LINK: hovering a row highlights those cities
-   *     everywhere and removes nothing.
+   *   globe click --SELECT-->  head-to-head + scatter callouts + arc
+   *   archetype pills --LINK->  globe + scatter (highlight, nothing removed)
+   *   hover --LINK----------->  every view
    *
-   *   brush --filter--> map + scatter + stat line
-   *   grid  --link---->  map + scatter   (highlight, nothing removed)
-   *   map   --select-->  arcs + head-to-head
+   * The contrast with Prototype A is the entry point: A starts from a measure
+   * and ranks all fifty; B starts from a place and drills into a pair.
    */
   import { onMount } from 'svelte';
-  import { loadCities, loadLand, THEMES } from '$lib/data.js';
-  import WorldMap from '$lib/WorldMap.svelte';
-  import ObscurityBrush from '$lib/ObscurityBrush.svelte';
+  import { loadCities, loadLand, greatCircleKm } from '$lib/data.js';
+  import Globe from '$lib/Globe.svelte';
   import ThemeScatter from '$lib/ThemeScatter.svelte';
-  import ArchetypeGrid from '$lib/ArchetypeGrid.svelte';
   import HeadToHead from '$lib/HeadToHead.svelte';
   import Legend from '$lib/Legend.svelte';
 
@@ -32,47 +26,33 @@
   let error = $state(null);
 
   // --- shared selection state, one owner each ---------------------------
-  let obscurityRange = $state(null); // FILTER (brush, in data units)
-  let highlightGroup = $state(null); // LINK   (archetype row)
-  let hoveredCity = $state(null);    // LINK   (single mark)
-  let picks = $state([]);            // selection for the comparison
-  let groupBy = $state('archetype');
-  let xKey = $state('obscurity');
-  let yKey = $state('theme:Nature');
-
-  // --- one derived subset; every filtered view reads this ---------------
-  let filtered = $derived(
-    obscurityRange
-      ? cities.filter(
-          (c) => c.obscurity >= obscurityRange[0] && c.obscurity <= obscurityRange[1]
-        )
-      : cities
-  );
-  let filteredNames = $derived(new Set(filtered.map((c) => c.city)));
-
-  // Highlight narrows emphasis only — it never leaves the filtered set.
-  let highlightNames = $derived(
-    highlightGroup
-      ? new Set(filtered.filter((c) => c[groupBy] === highlightGroup).map((c) => c.city))
-      : null
-  );
+  let picks = $state([]);            // SELECT, up to two
+  let hoveredCity = $state(null);    // LINK
+  let highlightGroup = $state(null); // LINK (archetype)
+  let xKey = $state('theme:History');
+  let yKey = $state('theme:Food');
 
   let byName = $derived(new Map(cities.map((c) => [c.city, c])));
   let cityA = $derived(picks[0] ? byName.get(picks[0]) : null);
   let cityB = $derived(picks[1] ? byName.get(picks[1]) : null);
-  // The map draws arcs for whichever city is currently in focus.
-  let activeCity = $derived(hoveredCity ?? picks[picks.length - 1] ?? null);
 
-  let crossRegion = $derived.by(() => {
-    if (!filtered.length) return null;
-    const n = filtered.filter((c) => c.crossRegionTwin).length;
-    return { n, pct: Math.round((n / filtered.length) * 100) };
-  });
+  // Highlight emphasises; it never removes.
+  let highlightNames = $derived(
+    highlightGroup
+      ? new Set(cities.filter((c) => c.archetype === highlightGroup).map((c) => c.city))
+      : null
+  );
+
+  let archetypes = $derived(
+    [...new Set(cities.map((c) => c.archetype))].sort((a, b) => a.localeCompare(b))
+  );
+
+  let km = $derived(cityA && cityB ? greatCircleKm(cityA, cityB) : null);
 
   function pick(name) {
     if (picks.includes(name)) picks = picks.filter((p) => p !== name);
     else if (picks.length < 2) picks = [...picks, name];
-    else picks = [picks[1], name];
+    else picks = [picks[1], name]; // oldest falls off
   }
 
   onMount(async () => {
@@ -86,17 +66,17 @@
   });
 </script>
 
-<svelte:head><title>Prototype B — Start from a city</title></svelte:head>
+<svelte:head><title>Prototype B — Spin the globe, pick two</title></svelte:head>
 
 <main>
   <header class="top">
     <div>
-      <p class="eyebrow">Prototype B · stacked, map-first</p>
-      <h1>Which cities sound alike — and does distance have anything to do with it?</h1>
+      <p class="eyebrow">Prototype B · globe-led comparison</p>
+      <h1>Pick two cities anywhere on Earth. Do they sound alike?</h1>
       <p class="lede">
-        Fifty official tourism sites. Start on the map: click a city to see the
-        four cities that most sound like it. Then narrow the field, or put two
-        cities head to head.
+        Spin the globe and click two cities. Everything below fills in for that
+        pair: whether any measure calls them twins, what each one talks about,
+        and where both sit against the other forty-eight.
       </p>
     </div>
     <nav>
@@ -110,88 +90,62 @@
   {:else if !cities.length}
     <p class="panel note">Loading 50 cities…</p>
   {:else}
-    <section class="panel">
-      <ObscurityBrush
+    <section class="panel globe-panel">
+      <Globe
         {cities}
-        range={obscurityRange}
-        {hoveredCity}
-        onbrush={(r) => (obscurityRange = r)}
-        onhovercity={(c) => (hoveredCity = c)}
-      />
-    </section>
-
-    <section class="panel">
-      <WorldMap
-        cities={filtered}
         {land}
         {highlightNames}
-        {activeCity}
         {hoveredCity}
         {picks}
         onhovercity={(c) => (hoveredCity = c)}
         onpickcity={pick}
       />
-      <div class="statline">
-        <Legend note={false} />
-        {#if crossRegion}
-          <p class="note">
-            <strong>{crossRegion.n} of {filtered.length}</strong> cities on screen
-            ({crossRegion.pct}%) have their closest-sounding twin in a different
-            world region.
-          </p>
-        {/if}
-      </div>
-    </section>
 
-    <div class="two-up">
-      <section class="panel">
-        <ThemeScatter
-          cities={filtered}
-          allCities={cities}
-          {xKey}
-          {yKey}
-          {hoveredCity}
-          {picks}
-          {highlightNames}
-          showExcluded={false}
-          onhovercity={(c) => (hoveredCity = c)}
-          onpickcity={pick}
-          onchangeaxis={(which, id) => (which === 'x' ? (xKey = id) : (yKey = id))}
-        />
-      </section>
-
-      <section class="panel">
-        <div class="ghead">
-          <div class="toggle">
-            <button
-              aria-pressed={groupBy === 'archetype'}
-              onclick={() => { groupBy = 'archetype'; highlightGroup = null; }}
-            >Talks about</button>
-            <button
-              aria-pressed={groupBy === 'personality'}
-              onclick={() => { groupBy = 'personality'; highlightGroup = null; }}
-            >Sells like</button>
-          </div>
-          {#if highlightGroup}
-            <button onclick={() => (highlightGroup = null)}>Clear highlight</button>
+      <aside class="side">
+        <div class="selected">
+          <span class="eyebrow">Selected</span>
+          {#if picks.length === 0}
+            <p class="note">Nothing yet — click a city on the globe.</p>
+          {:else}
+            <ol class="picklist">
+              {#each picks as name (name)}
+                {@const c = byName.get(name)}
+                <li class:gem={c.category === 'hidden'}>
+                  <strong>{c.city}</strong>
+                  <span>{c.country}</span>
+                  <button class="drop" aria-label="Remove {c.city}" onclick={() => pick(name)}>×</button>
+                </li>
+              {/each}
+            </ol>
+            {#if km !== null}
+              <p class="note km">{Math.round(km).toLocaleString()} km apart</p>
+            {:else}
+              <p class="note">Pick one more to compare.</p>
+            {/if}
+            <button onclick={() => (picks = [])}>Clear</button>
           {/if}
         </div>
-        <ArchetypeGrid
-          cities={filtered}
-          {groupBy}
-          selectedGroup={highlightGroup}
-          {hoveredCity}
-          {picks}
-          onselectgroup={(g) => (highlightGroup = g)}
-          onhovercity={(c) => (hoveredCity = c)}
-          onpickcity={pick}
-        />
-        <p class="note hint">
-          Clicking a row <strong>highlights</strong> here — nothing leaves the map
-          or the scatter. Only the brush above removes cities.
-        </p>
-      </section>
-    </div>
+
+        <div class="highlight">
+          <span class="eyebrow">Highlight an archetype</span>
+          <div class="pills">
+            {#each archetypes as a}
+              <button
+                class="pill"
+                aria-pressed={highlightGroup === a}
+                onclick={() => (highlightGroup = highlightGroup === a ? null : a)}
+              >{a}</button>
+            {/each}
+          </div>
+          <p class="note">
+            Highlighting dims the rest — it never removes them, and they stay
+            clickable.
+          </p>
+        </div>
+
+        <Legend />
+      </aside>
+    </section>
 
     <section class="panel">
       <HeadToHead
@@ -203,17 +157,36 @@
       />
     </section>
 
+    <section class="panel">
+      <ThemeScatter
+        {cities}
+        allCities={cities}
+        {xKey}
+        {yKey}
+        {hoveredCity}
+        {picks}
+        {highlightNames}
+        onhovercity={(c) => (hoveredCity = c)}
+        onpickcity={pick}
+        onchangeaxis={(which, id) => (which === 'x' ? (xKey = id) : (yKey = id))}
+      />
+      <p class="note hint">
+        The two selected cities are ringed and labelled here, so you can see
+        whether the pair you chose is unusual or sits in the middle of the pack.
+      </p>
+    </section>
+
     <footer class="note">
-      Rates are per 1,000 words. "Twin" has four competing definitions here and
-      they rarely agree — that disagreement is the finding, not a bug. Source:
-      official tourism-board homepage text, 50 cities.
+      Theme measures are mentions per 1,000 words. "Twin" has four competing
+      definitions and they rarely agree — that disagreement is the finding, not
+      a bug. Source: official tourism-board homepage text, 50 cities.
     </footer>
   {/if}
 </main>
 
 <style>
   main {
-    max-width: 920px;
+    max-width: 1100px;
     margin: 0 auto;
     padding: 28px 16px 60px;
     display: flex;
@@ -225,27 +198,41 @@
   .lede { margin-top: 7px; max-width: 62ch; color: var(--text-secondary); font-size: 0.86rem; line-height: 1.5; }
   nav { display: flex; gap: 14px; font-size: 0.78rem; white-space: nowrap; }
 
-  .statline {
-    display: flex; justify-content: space-between; align-items: center;
-    gap: 20px; flex-wrap: wrap;
-    border-top: 1px solid var(--border);
-    margin-top: 12px; padding-top: 10px;
-  }
-  .two-up {
+  .globe-panel {
     display: grid;
-    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-    gap: 14px;
+    grid-template-columns: minmax(0, 1fr) 250px;
+    gap: 24px;
     align-items: start;
   }
-  .ghead { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
-  .toggle { display: flex; gap: 6px; }
-  .hint { border-top: 1px solid var(--border); padding-top: 9px; margin-top: 10px; }
+  .side { display: flex; flex-direction: column; gap: 20px; padding-top: 6px; }
 
+  .selected { display: flex; flex-direction: column; gap: 7px; align-items: flex-start; }
+  .picklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; width: 100%; }
+  .picklist li {
+    display: flex; align-items: baseline; gap: 6px;
+    border-left: 3px solid var(--big);
+    padding: 3px 0 3px 8px;
+    font-size: 0.82rem;
+  }
+  .picklist li.gem { border-left-color: var(--gem); }
+  .picklist span { color: var(--text-muted); font-size: 0.7rem; }
+  .drop {
+    margin-left: auto; border: none; background: none; padding: 0 4px;
+    color: var(--text-muted); font-size: 0.95rem; line-height: 1;
+  }
+  .drop:hover { color: var(--text-primary); background: none; }
+  .km { font-variant-numeric: tabular-nums; }
+
+  .highlight { display: flex; flex-direction: column; gap: 7px; }
+  .pills { display: flex; flex-wrap: wrap; gap: 4px; }
+  .pill { font-size: 0.68rem; padding: 3px 8px; border-radius: 999px; }
+
+  .hint { border-top: 1px solid var(--border); padding-top: 9px; margin-top: 10px; }
   .error { color: var(--text-primary); }
   footer { border-top: 1px solid var(--border); padding-top: 12px; max-width: 72ch; }
 
-  @media (max-width: 860px) {
-    .two-up { grid-template-columns: 1fr; }
+  @media (max-width: 880px) {
+    .globe-panel { grid-template-columns: 1fr; }
     .top { flex-direction: column; gap: 12px; }
   }
 </style>

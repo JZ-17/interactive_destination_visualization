@@ -35,9 +35,10 @@
     onchangeaxis = () => {}
   } = $props();
 
-  const margin = { top: 14, right: 18, bottom: 52, left: 64 };
-  const width = 460;
-  const height = 380;
+  // Drawn near its real display size; an SVG scaled up also scales its type.
+  const margin = { top: 16, right: 22, bottom: 56, left: 72 };
+  const width = 680;
+  const height = 470;
   const innerW = width - margin.left - margin.right;
   const innerH = height - margin.top - margin.bottom;
 

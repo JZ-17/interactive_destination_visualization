@@ -17,31 +17,31 @@
   <div class="cards">
     <a class="panel card" href="prototype-a/">
       <p class="eyebrow">Prototype A</p>
-      <h2>Start from a type, narrow down</h2>
+      <h2>Rank the 50</h2>
       <p>
-        A faceted dashboard. The type grid is the control surface: picking a row
-        <strong>filters</strong> the scatter and the summary numbers. Side-by-side
-        layout, no geography.
+        Pick a theme and all fifty cities <strong>sort</strong> into a card
+        gallery — most first or least first. Reading down a ranked column needs
+        no chart literacy at all. Starts from a <em>measure</em>.
       </p>
       <ul>
-        <li>Grid → filter</li>
-        <li>Hover → link</li>
-        <li>Two clicks → comparison</li>
+        <li>Theme → sort</li>
+        <li>Category → filter</li>
+        <li>Two cards → comparison</li>
       </ul>
     </a>
 
     <a class="panel card" href="prototype-b/">
       <p class="eyebrow">Prototype B</p>
-      <h2>Start from a city, follow the thread</h2>
+      <h2>Spin the globe, pick two</h2>
       <p>
-        A stacked, map-first walkthrough. The map leads, and clicking a city
-        draws arcs to the four cities that sound most like it. Filtering moves to
-        a brush; the grid only <strong>highlights</strong>.
+        A large globe you drag to rotate. Click two cities anywhere on Earth and
+        every comparison below fills in for that pair. Starts from a
+        <em>place</em>.
       </p>
       <ul>
-        <li>Brush → filter</li>
-        <li>Grid + hover → link</li>
-        <li>Map click → selection</li>
+        <li>Globe click → selection</li>
+        <li>Archetype → highlight</li>
+        <li>Pair → full cross-comparison</li>
       </ul>
     </a>
   </div>
