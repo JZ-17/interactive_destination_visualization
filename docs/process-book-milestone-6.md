@@ -137,27 +137,30 @@ Dark mode renders are in `docs/screenshots/*-dark.png`; phone-width renders in
 | Geography | None | The whole premise |
 | Weakness | Fifty cards is a lot of scrolling; no sense of *where* anything is | Only half the cities are visible at once; you must spin to find a city you cannot see |
 
-**What coordinating the views revealed that one view could not.** Sorting in A is
-blunt but it exposes the range: food runs from **66.7 per 1,000 words (Tasmania)
-to 0.0 (London)** — the London tourism board does not mention food at all on its
-homepage. In B, picking two cities on opposite sides of the globe and watching
-the twin table come back "—" on both word-based measures makes the point that
-sounding alike is rare and mostly not geographic. **28 of 50 cities (56%) have
-their closest-sounding twin in a different world region**, and Ghent's nearest
-neighbour by distinctive vocabulary is Sydney.
+The two prototypes differ in where they let you start. Prototype A starts from a
+*measure*: you pick a theme and all fifty cities re-sort into ranked cards, which
+takes no chart literacy to read and exposes the full range at a glance — food
+runs from Tasmania at 66.7 mentions per 1,000 words down to London at 0.0,
+meaning London's tourism homepage never mentions food at all. Prototype B starts
+from a *place*: you spin a globe, click two cities, and the twin table, theme
+bars and scatter all fill in for that pair at once. B is the more persuasive of
+the two, because putting the pair on an actual sphere makes the central finding
+physical — 28 of the 50 cities (56%) have their closest-sounding twin in a
+different world region, and Ghent's nearest neighbour by distinctive vocabulary
+is Sydney. Each has a cost: A is a long scroll with no sense of *where* anything
+is, and B only ever shows about 41 of the 50 cities, with nothing signalling that
+the rest are behind the globe.
 
-**What was confusing.** On the globe, cities on the far side simply do not exist
-until you spin — there is no affordance telling you nine cities are hidden, only
-a count in the caption. In A, fifty cards is a long scroll, and the eye loses the
-sort order once the fold passes; a sticky header carrying the current measure
-would help.
-
-**Next steps.** The globe is the stronger opening — it is the view people want to
-touch — so we lean toward **B as the spine**, with A's sorted cards becoming the
-"browse everything" panel you reach after the globe has made its point. The
-twin-disagreement table is the most novel thing we have and should get more
-room. We also want to replace the hand-assigned popular/hidden colour with the
-continuous obscurity measure, or at least stop implying the label is a fact.
+Our next step is to use B as the spine of the final project and demote A's sorted
+cards to the "browse everything" panel you reach once the globe has made its
+point. Three fixes come first: an affordance on the globe for the cities you
+cannot currently see (a count badge or a searchable city list), a sticky header
+in the card gallery so the active sort measure survives the fold, and more room
+for the four-definition twin table, which is the most novel thing we have and is
+currently buried at the bottom of both pages. We also want to stop colouring by
+the hand-assigned popular/hidden label, since about ten of the fifty disagree
+with their own Wikipedia traffic, and move to the continuous obscurity measure
+instead.
 
 ---
 
