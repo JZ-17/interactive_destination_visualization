@@ -101,50 +101,52 @@
         onpickcity={pick}
       />
 
-      <aside class="side">
-        <div class="selected">
-          <span class="eyebrow">Selected</span>
-          {#if picks.length === 0}
-            <p class="note">Nothing yet — click a city on the globe.</p>
+      <!-- Selection sits directly under the globe: it is click feedback, so it
+           has to stay next to the thing being clicked. Fixed min-height so the
+           page does not jump as picks come and go. -->
+      <div class="selected-bar" aria-live="polite">
+        {#if picks.length === 0}
+          <p class="note">Click a city to select it. Pick two to compare them.</p>
+        {:else}
+          <ul class="picklist">
+            {#each picks as name (name)}
+              {@const c = byName.get(name)}
+              <li class:gem={c.category === 'hidden'}>
+                <strong>{c.city}</strong>
+                <span>{c.country}</span>
+                <button class="drop" aria-label="Remove {c.city}" onclick={() => pick(name)}>×</button>
+              </li>
+            {/each}
+          </ul>
+          {#if km !== null}
+            <span class="km">{Math.round(km).toLocaleString()} km apart</span>
           {:else}
-            <ol class="picklist">
-              {#each picks as name (name)}
-                {@const c = byName.get(name)}
-                <li class:gem={c.category === 'hidden'}>
-                  <strong>{c.city}</strong>
-                  <span>{c.country}</span>
-                  <button class="drop" aria-label="Remove {c.city}" onclick={() => pick(name)}>×</button>
-                </li>
-              {/each}
-            </ol>
-            {#if km !== null}
-              <p class="note km">{Math.round(km).toLocaleString()} km apart</p>
-            {:else}
-              <p class="note">Pick one more to compare.</p>
-            {/if}
-            <button onclick={() => (picks = [])}>Clear</button>
+            <span class="note">Pick one more.</span>
+          {/if}
+          <button onclick={() => (picks = [])}>Clear</button>
+        {/if}
+      </div>
+
+      <div class="pills-row">
+        <span class="eyebrow">Highlight an archetype</span>
+        <div class="pills">
+          {#each archetypes as a}
+            <button
+              class="pill"
+              aria-pressed={highlightGroup === a}
+              onclick={() => (highlightGroup = highlightGroup === a ? null : a)}
+            >{a}</button>
+          {/each}
+          {#if highlightGroup}
+            <button class="pill clear-pill" onclick={() => (highlightGroup = null)}>Clear</button>
           {/if}
         </div>
+        <p class="note">
+          Highlighting dims the rest — it never removes them, and they stay clickable.
+        </p>
+      </div>
 
-        <div class="highlight">
-          <span class="eyebrow">Highlight an archetype</span>
-          <div class="pills">
-            {#each archetypes as a}
-              <button
-                class="pill"
-                aria-pressed={highlightGroup === a}
-                onclick={() => (highlightGroup = highlightGroup === a ? null : a)}
-              >{a}</button>
-            {/each}
-          </div>
-          <p class="note">
-            Highlighting dims the rest — it never removes them, and they stay
-            clickable.
-          </p>
-        </div>
-
-        <Legend />
-      </aside>
+      <Legend />
     </section>
 
     <section class="panel">
@@ -197,41 +199,63 @@
   .lede { margin-top: 7px; max-width: 62ch; color: var(--text-secondary); font-size: 0.86rem; line-height: 1.5; }
   nav { display: flex; gap: 14px; font-size: 0.78rem; white-space: nowrap; }
 
+  /* The globe is radially symmetric, so it is centred rather than set beside a
+     sidebar — off-centre it reads as an illustration next to a panel. */
   .globe-panel {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 250px;
-    gap: 24px;
-    align-items: start;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
   }
-  .side { display: flex; flex-direction: column; gap: 20px; padding-top: 6px; }
 
-  .selected { display: flex; flex-direction: column; gap: 7px; align-items: flex-start; }
-  .picklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; width: 100%; }
+  .selected-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    min-height: 38px;
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--wash);
+  }
+  .picklist { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px; }
   .picklist li {
     display: flex; align-items: baseline; gap: 6px;
     border-left: 3px solid var(--big);
-    padding: 3px 0 3px 8px;
-    font-size: 0.82rem;
+    padding: 1px 0 1px 8px;
+    font-size: 0.85rem;
   }
   .picklist li.gem { border-left-color: var(--gem); }
   .picklist span { color: var(--text-muted); font-size: 0.7rem; }
   .drop {
-    margin-left: auto; border: none; background: none; padding: 0 4px;
-    color: var(--text-muted); font-size: 0.95rem; line-height: 1;
+    border: none; background: none; padding: 0 2px;
+    color: var(--text-muted); font-size: 1rem; line-height: 1;
   }
   .drop:hover { color: var(--text-primary); background: none; }
-  .km { font-variant-numeric: tabular-nums; }
+  .km { font-size: 0.78rem; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
 
-  .highlight { display: flex; flex-direction: column; gap: 7px; }
-  .pills { display: flex; flex-wrap: wrap; gap: 4px; }
+  .pills-row {
+    display: flex; flex-direction: column; align-items: center; gap: 7px;
+    max-width: 680px; text-align: center;
+  }
+  .pills { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
+  /* Legend is shared with Prototype A, so centre it only inside this panel. */
+  .globe-panel :global(.legend) {
+    justify-content: center;
+    text-align: center;
+    max-width: 620px;
+  }
   .pill { font-size: 0.68rem; padding: 3px 8px; border-radius: 999px; }
+  .clear-pill { color: var(--text-muted); }
 
   .hint { border-top: 1px solid var(--border); padding-top: 9px; margin-top: 10px; }
   .error { color: var(--text-primary); }
   footer { border-top: 1px solid var(--border); padding-top: 12px; max-width: 72ch; }
 
   @media (max-width: 880px) {
-    .globe-panel { grid-template-columns: 1fr; }
+    /* .globe-panel is already a centred column; nothing to restack. */
     .top { flex-direction: column; gap: 12px; }
   }
 </style>

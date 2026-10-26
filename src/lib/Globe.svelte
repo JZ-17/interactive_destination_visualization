@@ -200,7 +200,9 @@
 </figure>
 
 <style>
-  figure { margin: 0; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+  /* width:100% matters — in a centred flex column the figure would otherwise
+     shrink to fit its content and the globe would never reach its max size. */
+  figure { margin: 0; width: 100%; display: flex; flex-direction: column; gap: 10px; align-items: center; }
   .stage { width: 100%; max-width: 720px; }
 
   svg {
