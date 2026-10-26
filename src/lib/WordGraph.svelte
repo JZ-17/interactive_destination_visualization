@@ -256,7 +256,10 @@
   }
   .cityname.lit { fill: var(--text-primary); font-weight: 650; }
   .citynode:hover .cityname { fill: var(--text-primary); }
-  .citynode:focus-visible .citydot { outline: 2px solid var(--text-primary); }
+  /* The default focus box draws a rectangle around a round node; ring the
+     node itself instead. */
+  .citynode:focus-visible { outline: none; }
+  .citynode:focus-visible .citydot { stroke: var(--text-primary); stroke-width: 2.5; }
 
   .hub { cursor: pointer; }
   .hub.faded { opacity: 0.3; }
@@ -267,6 +270,8 @@
     transition: fill 120ms, stroke 120ms;
   }
   .hub:hover .hubdot { stroke: var(--text-primary); }
+  .hub:focus-visible { outline: none; }
+  .hub:focus-visible .hubdot { stroke: var(--text-primary); stroke-width: 2.5; }
   .hub.on .hubdot { fill: var(--big-soft); stroke: var(--big); stroke-width: 2; }
   .hubword {
     font-size: 11px;

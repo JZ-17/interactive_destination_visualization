@@ -22,6 +22,7 @@
   import ThemeScatter from '$lib/ThemeScatter.svelte';
   import HeadToHead from '$lib/HeadToHead.svelte';
   import Legend from '$lib/Legend.svelte';
+  import WordGraph from '$lib/WordGraph.svelte';
 
   let cities = $state([]);
   let countries = $state(null);
@@ -39,6 +40,8 @@
   let onFace = $state(0);            // cities currently on the near hemisphere
   let hoveredCity = $state(null);    // LINK
   let highlightGroup = $state(null); // LINK (archetype)
+  let wordPool = $state('adjectives');   // which vocabulary the graph shows
+  let selectedWord = $state(null);       // LINK into the shared-word graph
   let measureKey = $state('theme:Food'); // SORT, drives the inventory order
   let direction = $state('desc');        // SORT
   let categoryFilter = $state('all');    // FILTER: all | popular | hidden
@@ -327,6 +330,20 @@
 
     <!-- Screen two: everything that is about the whole corpus. -->
     <section class="trends">
+    <!-- The corpus-wide view: which words nearly all of them reach for. -->
+    <section class="panel">
+      <WordGraph
+        cities={shown}
+        poolId={wordPool}
+        {selectedWord}
+        {hoveredCity}
+        {picks}
+        onselectword={({ pool, word }) => { wordPool = pool; selectedWord = word; }}
+        onhovercity={(c) => (hoveredCity = c)}
+        onpickcity={pick}
+      />
+    </section>
+
     <section class="panel">
       <ThemeScatter
         {cities}
