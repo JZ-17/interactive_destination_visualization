@@ -107,10 +107,8 @@
       <!-- Selection sits directly under the globe: it is click feedback, so it
            has to stay next to the thing being clicked. Fixed min-height so the
            page does not jump as picks come and go. -->
-      <div class="selected-bar" aria-live="polite">
-        {#if picks.length === 0}
-          <p class="note"><strong>Drag to spin.</strong> Click a city to select — pick two to compare.</p>
-        {:else}
+      <div class="selected-bar" class:empty={picks.length === 0} aria-live="polite">
+        {#if picks.length > 0}
           <ul class="picklist">
             {#each picks as name (name)}
               {@const c = byName.get(name)}
@@ -293,11 +291,16 @@
        hint text, and the bar is bottom-anchored, so any height change nudges
        it. Both states are one line, so a fixed height is safe here. */
     height: 42px;
+    transition: background-color 120ms, border-color 120ms;
     padding: 6px 14px;
     border: 1px solid var(--border);
     border-radius: 999px;
     background: var(--wash);
   }
+  /* Nothing picked: the bar keeps its height so the controls below never
+     shift, but shows no chrome — spinning and clicking need no instructions. */
+  .selected-bar.empty { background: none; border-color: transparent; }
+
   .picklist { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px; }
   .picklist li {
     display: flex; align-items: baseline; gap: 6px;
