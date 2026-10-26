@@ -50,7 +50,8 @@
 
 <div
   class="grid"
-  style={columns ? `grid-template-columns: repeat(${columns}, minmax(0, 1fr));` : undefined}
+  class:fixed-cols={!!columns}
+  style={columns ? `--cols: ${columns};` : undefined}
   role="list"
 >
   {#each shown as r (r.city.city)}
@@ -86,6 +87,14 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(var(--card-min, 188px), 1fr));
     gap: 10px;
+  }
+  /* A fixed column count only once there is room for it. Forcing ten columns
+     at phone width pushed the page to 442px of horizontal scroll, because the
+     cards cannot shrink below their content. */
+  @media (min-width: 1100px) {
+    .grid.fixed-cols {
+      grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+    }
   }
   .empty { padding: 28px; text-align: center; }
 </style>
