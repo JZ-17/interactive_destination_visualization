@@ -11,7 +11,7 @@
    */
   import { scaleLinear } from 'd3-scale';
   import {
-    THEMES, PERSONALITIES,
+    THEMES, PERSONALITIES, VOICE_BLURB,
     greatCircleKm, sharedDescriptiveWords
   } from './data.js';
 
@@ -100,9 +100,7 @@
     class="h2h"
     class:compact
     class:city-color={cityColor}
-    style={cityColor
-      ? `--a-color: hsl(${a.hue} 58% 47%); --b-color: hsl(${b.hue} 58% 47%);`
-      : undefined}
+    style={cityColor ? `--a-h: ${a.hue}; --b-h: ${b.hue};` : undefined}
   >
     <header>
       <div class="card" class:gem={a.category === 'hidden'}
@@ -196,6 +194,10 @@
     <section class="two-up">
       <div>
         <h3>How they sell it</h3>
+        <p class="note scalenote">
+          Each city's strongest rhetorical move, in standard deviations above
+          the average across all fifty.
+        </p>
         <dl class="voice">
           {#each [a, b] as c (c.city)}
             <dt>{c.city}</dt>
@@ -204,6 +206,7 @@
                 <strong>{c.personality}</strong>
                 <span class="score">{fmt(c.personalityStrength)} sd</span>
               </span>
+              <span class="blurb">{VOICE_BLURB[c.personality] ?? ''}</span>
               <span class="q">also {alsoLeansOn(c).join(' · ')}</span>
             </dd>
           {/each}
@@ -295,6 +298,10 @@
   .bar.gem { fill: var(--gem); }
   /* Repeat .gem so the city hue wins on specificity rather than source order
      — the same trap that silently collapsed the deck to one gem colour. */
+  .h2h.city-color {
+    --a-color: hsl(var(--a-h) var(--city-s, 58%) var(--city-l, 47%));
+    --b-color: hsl(var(--b-h) var(--city-s, 58%) var(--city-l, 47%));
+  }
   .h2h.city-color .bar.side-a,
   .h2h.city-color .bar.side-a.gem { fill: var(--a-color); }
   .h2h.city-color .bar.side-b,
@@ -318,6 +325,8 @@
   dl.voice dt:first-child { margin-top: 0; }
   dl.voice dd { margin: 1px 0 0; }
   .lead { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+  .blurb { display: block; font-size: 0.72rem; color: var(--text-secondary); margin-top: 1px; }
+  .scalenote { margin-bottom: 8px; }
   .lead .score { display: inline; margin: 0; }
 
   .siglabel { margin-top: 10px; }

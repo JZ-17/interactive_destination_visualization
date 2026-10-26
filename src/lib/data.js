@@ -40,6 +40,38 @@ export const VOICE = {
 export const PERSONALITIES = Object.keys(VOICE);
 
 /**
+ * Plain-English gloss for each personality, so the labels mean something on
+ * screen. These restate what the pipeline actually measured — see the VOICE
+ * map above and data/METHODOLOGY.md.
+ */
+export const VOICE_BLURB = {
+  'The Braggart': 'ranks itself and quotes big numbers',
+  'The Name-Dropper': 'cites outside authorities and UNESCO status',
+  'The Closer': 'pushes urgency and tells you to act',
+  'The Host': 'talks straight to "you"',
+  'The Sensualist': 'leans on the senses and warm, charged nouns',
+  'The Underdog': 'pre-empts low expectations — "underrated", "more than just"',
+  'The Bargain': 'frames itself on price and value',
+  'The Good Citizen': 'sells sustainability and who it is for',
+  'The Cliche Machine': 'reaches for the stock travel phrases',
+  'The Understated': 'leans on no particular move — nothing clears 0.5 sd'
+};
+
+/** What an archetype means: the theme that city over-indexes on. */
+export const ARCHETYPE_OF_THEME = {
+  'Food': 'The Gourmand',
+  'History': 'The Historian',
+  'Art & Culture': 'The Aesthete',
+  'Nature': 'The Naturalist',
+  'Beach & Water': 'The Sailor',
+  'Nightlife': 'The Night Owl',
+  'Shopping': 'The Shopper',
+  'Architecture': 'The Architect',
+  'Modern & Business': 'The Executive',
+  'Family': 'The Family Host'
+};
+
+/**
  * The four twin definitions. They disagree on purpose — see METHODOLOGY.md.
  * `lowerIsCloser` matters: two are similarities, two are distances.
  */

@@ -1,4 +1,6 @@
 <script>
+  import { VOICE_BLURB } from './data.js';
+
   /**
    * One city, as a card. The measure currently being sorted on is the card's
    * headline number, with a bar giving it a length the eye can compare down
@@ -46,9 +48,7 @@
     e.dataTransfer.setData('text/plain', city.city);
     e.dataTransfer.effectAllowed = 'move';
   }}
-  style={cityColor
-    ? `--city: hsl(${city.hue} 58% 47%); --city-wash: hsl(${city.hue} 62% 97%);`
-    : undefined}
+  style={cityColor ? `--city-h: ${city.hue};` : undefined}
   class="card"
   class:city-color={cityColor}
   class:dense
@@ -83,13 +83,13 @@
   </div>
   <div class="track"><div class="fill" style="width:{pct}%"></div></div>
   <footer class="pfoot">
-    <span class="chip muted">{city.personality}</span>
+    <span class="chip muted" title="{city.personality} — {VOICE_BLURB[city.personality] ?? ''}">{city.personality}</span>
     <span class="rank">#{rank}</span>
   </footer>
 {:else if dense}
   <div class="row">
     <div class="ident">
-      <p class="type">{city.archetype}</p>
+      <p class="type" title="{city.archetype} — over-indexes on {city.dominantTheme}">{city.archetype}</p>
       <h3>{city.city}<span class="country">{city.country}</span></h3>
     </div>
     <div class="metric">
@@ -100,7 +100,7 @@
   <div class="track"><div class="fill" style="width:{pct}%"></div></div>
 {:else}
   {#if typeFirst}
-    <p class="type">{city.archetype}</p>
+    <p class="type" title="{city.archetype} — over-indexes on {city.dominantTheme}">{city.archetype}</p>
   {/if}
 
   <header>
@@ -118,8 +118,10 @@
   <div class="track"><div class="fill" style="width:{pct}%"></div></div>
 
   <footer>
-    {#if !typeFirst}<span class="chip">{city.archetype}</span>{/if}
-    <span class="chip muted">{city.personality}</span>
+    {#if !typeFirst}
+      <span class="chip" title="{city.archetype} — over-indexes on {city.dominantTheme}">{city.archetype}</span>
+    {/if}
+    <span class="chip muted" title="{city.personality} — {VOICE_BLURB[city.personality] ?? ''}">{city.personality}</span>
   </footer>
 {/if}
 </div>
@@ -149,16 +151,20 @@
      the category moves to a translucent border all the way round. The hue says
      "a different city", nothing more — there is no legend for it. */
   .card.city-color {
-    border: 2px solid rgba(22, 104, 227, 0.45);
+    /* Saturation and lightness come from the theme, so a dark skin can
+       re-light the same hue instead of carrying a second palette. */
+    --city: hsl(var(--city-h) var(--city-s, 58%) var(--city-l, 47%));
+    --city-wash: hsl(var(--city-h) var(--city-ws, 62%) var(--city-wl, 97%));
+    border: 2px solid var(--cat-border, rgba(22, 104, 227, 0.45));
     background: var(--city-wash);
   }
-  .card.city-color.gem { border-color: rgba(199, 122, 0, 0.5); }
+  .card.city-color.gem { border-color: var(--cat-border-gem, rgba(199, 122, 0, 0.5)); }
   /* .gem .fill sets the category colour at equal specificity and earlier in
      the file, so the gem selector is repeated here to win on specificity
      rather than order. Without it all 25 gems shared one bar colour. */
   .card.city-color .fill,
   .card.city-color.gem .fill { background: var(--city); }
-  .card.city-color .track { background: rgba(0, 0, 0, 0.06); }
+  .card.city-color .track { background: var(--track-bg, rgba(0, 0, 0, 0.06)); }
   /* Hover grows the card. transform-origin:center keeps it from shoving its
      neighbours around, and the raised z-index stops the grid clipping it. */
   .card:hover, .card.hovered {

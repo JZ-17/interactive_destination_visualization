@@ -128,7 +128,7 @@
 
 <svelte:head><title>Prototype B — Spin the globe, pick two</title></svelte:head>
 
-<main class="snap">
+<main class="snap space">
   {#if error}
     <section class="hero"><p class="panel error">Could not load the data: {error}</p></section>
   {:else if !cities.length}
@@ -355,6 +355,105 @@
 </main>
 
 <style>
+  /* --- Space skin, scoped to this prototype -------------------------------
+     Reference: Linear's dark, luminous precision crossed with NASA's "Eyes on
+     the Solar System", whose orbital arcs this view already echoes. The page
+     goes to deep space so the globe reads as a lit planet rather than a
+     diagram — the one thing that stays bright.
+
+     Prototype A keeps its Apple light skin. Only chrome changes: the two data
+     colours are the validated dark steps (#3b87f0 / #bf8228, all six checks
+     pass on this surface), and the per-city hues are the same hues re-lit for
+     a dark background rather than a second palette. */
+  :global(body:has(main.space)) {
+    background:
+      radial-gradient(900px 520px at 72% -8%, rgba(74, 110, 220, 0.3), transparent 62%),
+      radial-gradient(700px 480px at 12% 8%, rgba(150, 86, 220, 0.18), transparent 60%),
+      #05070d;
+  }
+
+  main.space {
+    --surface-1: rgba(18, 21, 33, 0.72);
+    --page: #05070d;
+    --text-primary: #e9edf7;
+    --text-secondary: #a6b0c9;
+    --text-muted: #6f7a93;
+    --border: rgba(132, 164, 255, 0.16);
+    --wash: rgba(140, 170, 255, 0.07);
+    --gridline: rgba(132, 164, 255, 0.12);
+    --axis: rgba(132, 164, 255, 0.28);
+    --big: #3b87f0;
+    --gem: #bf8228;
+    --accent: #6ea8ff;
+
+    /* The same city hues, re-lit for a dark surface. */
+    --city-s: 72%;
+    --city-l: 62%;
+    --city-ws: 38%;
+    --city-wl: 15%;
+    /* Nearly opaque: at 50% the border composited over each card's dark wash
+       and read as the city's hue rather than its category. */
+    --cat-border: rgba(90, 160, 250, 0.92);
+    --cat-border-gem: rgba(214, 152, 60, 0.92);
+    --track-bg: rgba(255, 255, 255, 0.1);
+
+    --glow: 0 0 0 1px rgba(132, 164, 255, 0.1), 0 24px 70px rgba(0, 0, 0, 0.62);
+    color: var(--text-primary);
+  }
+
+  /* Panels are glass with a lit top edge, the way Linear draws a surface. */
+  main.space :global(.panel),
+  main.space .inventory,
+  main.space .comparator,
+  main.space .result {
+    background: var(--surface-1);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: var(--glow), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  main.space :global(button),
+  main.space :global(select) {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    transition: background-color 140ms, box-shadow 140ms, border-color 140ms;
+  }
+  main.space :global(button:hover),
+  main.space :global(select:hover) {
+    background: rgba(255, 255, 255, 0.09);
+    border-color: rgba(132, 164, 255, 0.34);
+  }
+  main.space :global(button[aria-pressed='true']) {
+    background: linear-gradient(180deg, #4b92f5 0%, #2f6fd8 100%);
+    border-color: transparent;
+    color: #fff;
+    box-shadow: 0 0 0 1px rgba(110, 168, 255, 0.5), 0 6px 22px rgba(47, 111, 216, 0.45);
+  }
+  main.space :global(select option) { background: #12151f; color: #e9edf7; }
+
+  /* Empty drop spots read as sockets waiting for a card. */
+  main.space .slot:not(.filled) {
+    border-color: rgba(132, 164, 255, 0.3);
+    background: rgba(132, 164, 255, 0.04);
+  }
+  main.space .slot.over {
+    border-color: var(--accent);
+    background: rgba(110, 168, 255, 0.12);
+    box-shadow: 0 0 0 3px rgba(110, 168, 255, 0.18);
+  }
+
+  main.space .hero-top h1,
+  main.space :global(h2),
+  main.space :global(h3) { letter-spacing: -0.02em; }
+
+  @media (prefers-reduced-motion: reduce) {
+    main.space :global(button) { transition: none; }
+  }
+
   /* Two screens, and no resting place between them: scrolling down lands on
      the trends, scrolling up returns to the globe. The scroll container is
      this page rather than the document, so the snap never leaks to other
