@@ -212,50 +212,56 @@
             </label>
           </div>
 
-          <!-- Two slots you can drag a card into. A city is either in the
-               inventory or in a slot, so selecting one visibly moves it. -->
-          <div class="slots">
-            {#each [0, 1] as i}
-              {@const held = slots[i] ? byName.get(slots[i]) : null}
-              <div
-                class="slot"
-                class:filled={!!held}
-                class:over={dragOver === i}
-                role="button"
-                tabindex="0"
-                aria-label={held ? `Slot ${i + 1}: ${held.city}. Press to remove.` : `Empty slot ${i + 1}. Drop a city here.`}
-                ondragover={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; dragOver = i; }}
-                ondragleave={() => (dragOver === i ? (dragOver = null) : null)}
-                ondrop={(e) => onDrop(e, i)}
-                onclick={() => held && clearSlot(i)}
-                onkeydown={(e) => {
-                  if (held && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); clearSlot(i); }
-                }}
-              >
-                {#if held}
-                  <span class="slot-rank" class:gem={held.category === 'hidden'}></span>
-                  <span class="slot-name">{held.city}</span>
-                  <span class="slot-sub">{held.country}</span>
-                  <span class="slot-x" aria-hidden="true">×</span>
-                {:else}
-                  <span class="slot-empty">Drop a city here</span>
-                {/if}
-              </div>
-            {/each}
-          </div>
+        </aside>
 
-          <!-- The pair comparison lives under the deck, so picking two cities
-               and reading the result never leaves this screen. -->
-          <div class="inv-compare">
-            <HeadToHead
-              a={cityA}
-              b={cityB}
-              {cities}
-              compact={true}
-              onclear={() => (slots = [null, null])}
-              onhovercity={(c) => (hoveredCity = c)}
-            />
-          </div>
+        <!-- The comparator: its own box in the bottom-right corner, so the
+             deck on the left and the result on the right never crowd the
+             globe between them. -->
+        <aside class="comparator">
+        <!-- Two slots you can drag a card into. A city is either in the
+             inventory or in a slot, so selecting one visibly moves it. -->
+        <div class="slots">
+          {#each [0, 1] as i}
+            {@const held = slots[i] ? byName.get(slots[i]) : null}
+            <div
+              class="slot"
+              class:filled={!!held}
+              class:over={dragOver === i}
+              role="button"
+              tabindex="0"
+              aria-label={held ? `Slot ${i + 1}: ${held.city}. Press to remove.` : `Empty slot ${i + 1}. Drop a city here.`}
+              ondragover={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; dragOver = i; }}
+              ondragleave={() => (dragOver === i ? (dragOver = null) : null)}
+              ondrop={(e) => onDrop(e, i)}
+              onclick={() => held && clearSlot(i)}
+              onkeydown={(e) => {
+                if (held && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); clearSlot(i); }
+              }}
+            >
+              {#if held}
+                <span class="slot-rank" class:gem={held.category === 'hidden'}></span>
+                <span class="slot-name">{held.city}</span>
+                <span class="slot-sub">{held.country}</span>
+                <span class="slot-x" aria-hidden="true">×</span>
+              {:else}
+                <span class="slot-empty">Drop a city here</span>
+              {/if}
+            </div>
+          {/each}
+        </div>
+
+        <!-- The pair comparison lives under the deck, so picking two cities
+             and reading the result never leaves this screen. -->
+        <div class="inv-compare">
+          <HeadToHead
+            a={cityA}
+            b={cityB}
+            {cities}
+            compact={true}
+            onclear={() => (slots = [null, null])}
+            onhovercity={(c) => (hoveredCity = c)}
+          />
+        </div>
         </aside>
       </div>
 
@@ -367,17 +373,18 @@
     flex: none;
     /* Leave room for the floating inventory on the right (340px + gutters)
        on both sides, so the sphere stays centred and never runs under it. */
-    width: min(calc(100% - 848px), calc(100dvh - 240px));
+    width: min(calc(100% - 840px), calc(100dvh - 240px));
     height: auto;
     aspect-ratio: 1;
   }
 
+  /* Deck on the left, comparator on the right, globe centred between them. */
   .inventory {
     position: absolute;
     top: 62px;
-    right: 20px;
+    left: 20px;
     bottom: 104px;
-    width: 404px;
+    width: 380px;
     z-index: 3;
     min-height: 0;
     display: flex;
@@ -400,19 +407,37 @@
   /* Its own scroller, so running out of cards hands the scroll back to the
      page and the snap still works. */
   .inv-list {
-    flex: 1 1 52%;
+    flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
     padding: 2px 6px 2px 2px;
   }
 
+  /* Anchored to the bottom-right corner rather than filling the column, so
+     it reads as a tray the cards are dropped into. */
+  .comparator {
+    position: absolute;
+    right: 20px;
+    bottom: 104px;
+    width: 380px;
+    max-height: calc(100% - 180px);
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 6px 12px 12px;
+  }
+
   .slots {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 8px;
-    padding: 10px 8px 0 0;
-    border-top: 1px solid var(--border);
+    padding: 0 8px 0 0;
+    flex: none;
   }
   .slot {
     display: flex; align-items: center; gap: 6px;
@@ -449,11 +474,12 @@
 
   /* Its own scroller too, so a long comparison never pushes the deck off. */
   .inv-compare {
-    flex: 1 1 48%;
+    flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 8px 8px 2px 0;
+    border-top: 1px solid var(--border);
+    padding: 10px 8px 2px 0;
   }
   .inv-compare::-webkit-scrollbar { width: 8px; }
   .inv-compare::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
@@ -468,6 +494,7 @@
     gap: 8px 10px;
     padding: 10px 10px 2px 0;
     border-top: 1px solid var(--border);
+    flex: none;
   }
   .inv-filters .field { gap: 3px; }
   .inv-filters select { width: 100%; }
