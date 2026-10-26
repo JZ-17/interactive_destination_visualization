@@ -150,6 +150,7 @@
 
         <!-- The inventory: every city on screen at once, scrollable, so the
              cities hidden round the back of the globe are still reachable. -->
+        <div class="left-rail">
         <aside class="inventory">
           <header class="inv-head">
             <h2>All cities</h2>
@@ -258,11 +259,13 @@
             b={cityB}
             {cities}
             compact={true}
+            showEmptyState={false}
             onclear={() => (slots = [null, null])}
             onhovercity={(c) => (hoveredCity = c)}
           />
         </div>
         </aside>
+        </div>
       </div>
 
       <div class="hero-stack">
@@ -378,14 +381,21 @@
     aspect-ratio: 1;
   }
 
-  /* Deck on the left, comparator on the right, globe centred between them. */
-  .inventory {
+  /* Both panels stack in one left rail: deck on top, drop slots and the
+     comparison beneath it in the bottom-left corner. */
+  .left-rail {
     position: absolute;
     top: 62px;
     left: 20px;
     bottom: 104px;
     width: 380px;
     z-index: 3;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .inventory {
+    flex: 1 1 54%;
     min-height: 0;
     display: flex;
     flex-direction: column;
@@ -414,15 +424,10 @@
     padding: 2px 6px 2px 2px;
   }
 
-  /* Anchored to the bottom-right corner rather than filling the column, so
-     it reads as a tray the cards are dropped into. */
+  /* The tray cards get dropped into, at the foot of the rail. */
   .comparator {
-    position: absolute;
-    right: 20px;
-    bottom: 104px;
-    width: 380px;
-    max-height: calc(100% - 180px);
-    z-index: 3;
+    flex: 1 1 46%;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -432,20 +437,22 @@
     padding: 12px 6px 12px 12px;
   }
 
+  /* Two card-shaped spots, stacked — the same footprint as a deck card, so a
+     dragged card visibly lands in a slot its own size. */
   .slots {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-direction: column;
     gap: 8px;
     padding: 0 8px 0 0;
     flex: none;
   }
   .slot {
-    display: flex; align-items: center; gap: 6px;
-    min-height: 44px;
-    padding: 6px 8px;
+    display: flex; align-items: center; gap: 7px;
+    min-height: 55px;
+    padding: 8px 10px;
     border: 1px dashed var(--axis);
     border-radius: var(--radius);
-    font-size: 0.78rem;
+    font-size: 0.82rem;
     cursor: default;
     transition: border-color 120ms, background-color 120ms;
   }
@@ -470,7 +477,7 @@
               overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .slot-x { margin-left: auto; color: var(--text-muted); }
   .slot:hover .slot-x { color: var(--text-primary); }
-  .slot-empty { color: var(--text-muted); font-size: 0.72rem; }
+  .slot-empty { color: var(--text-muted); font-size: 0.75rem; }
 
   /* Its own scroller too, so a long comparison never pushes the deck off. */
   .inv-compare {

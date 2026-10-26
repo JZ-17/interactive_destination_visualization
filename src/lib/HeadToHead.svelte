@@ -21,6 +21,11 @@
     cities = [],
     /** Narrow geometry, for the column beside the globe. */
     compact = false,
+    /**
+     * Prompt shown before two cities are chosen. Prototype B turns it off:
+     * its two empty drop slots already say what to do.
+     */
+    showEmptyState = true,
     onclear = () => {},
     onhovercity = () => {}
   } = $props();
@@ -60,15 +65,17 @@
 </script>
 
 {#if !a || !b}
-  <div class="empty">
-    <p class="note">
-      <strong>Pick two cities</strong> to compare them head to head. Click one,
-      then another — in any view on this page.
-    </p>
-    {#if a}
-      <p class="note holding">Holding <strong>{a.city}</strong>. Pick a second.</p>
-    {/if}
-  </div>
+  {#if showEmptyState}
+    <div class="empty">
+      <p class="note">
+        <strong>Pick two cities</strong> to compare them head to head. Click one,
+        then another — in any view on this page.
+      </p>
+      {#if a}
+        <p class="note holding">Holding <strong>{a.city}</strong>. Pick a second.</p>
+      {/if}
+    </div>
+  {/if}
 {:else}
   <div class="h2h" class:compact>
     <header>
