@@ -15,8 +15,9 @@
    * and ranks all fifty; B starts from a place and drills into a pair.
    */
   import { onMount } from 'svelte';
-  import { loadCities, loadLand, greatCircleKm } from '$lib/data.js';
+  import { loadCities, loadLand, greatCircleKm, AXIS_OPTIONS, axisById } from '$lib/data.js';
   import Globe from '$lib/Globe.svelte';
+  import CardGrid from '$lib/CardGrid.svelte';
   import ThemeScatter from '$lib/ThemeScatter.svelte';
   import HeadToHead from '$lib/HeadToHead.svelte';
   import Legend from '$lib/Legend.svelte';
@@ -30,8 +31,20 @@
   let onFace = $state(0);            // cities currently on the near hemisphere
   let hoveredCity = $state(null);    // LINK
   let highlightGroup = $state(null); // LINK (archetype)
+  let measureKey = $state('theme:Food'); // SORT, drives the inventory order
+  let direction = $state('desc');        // SORT
+  let categoryFilter = $state('all');    // FILTER: all | popular | hidden
   let xKey = $state('theme:History');
   let yKey = $state('theme:Food');
+
+  let measure = $derived(axisById(measureKey));
+  const measureGroups = [...new Set(AXIS_OPTIONS.map((a) => a.group))];
+
+  // One derived subset. The globe, the inventory and the count all read it.
+  let shown = $derived(
+    categoryFilter === 'all' ? cities : cities.filter((c) => c.category === categoryFilter)
+  );
+  let shownNames = $derived(new Set(shown.map((c) => c.city)));
 
   let byName = $derived(new Map(cities.map((c) => [c.city, c])));
   let cityA = $derived(picks[0] ? byName.get(picks[0]) : null);
@@ -40,7 +53,7 @@
   // Highlight emphasises; it never removes.
   let highlightNames = $derived(
     highlightGroup
-      ? new Set(cities.filter((c) => c.archetype === highlightGroup).map((c) => c.city))
+      ? new Set(shown.filter((c) => c.archetype === highlightGroup).map((c) => c.city))
       : null
   );
 
@@ -88,19 +101,84 @@
         </nav>
       </header>
 
-      <div class="globe-slot">
-      <Globe
-        {cities}
-        {land}
-        {highlightNames}
-        {hoveredCity}
-        {picks}
-        showCaption={false}
-        onhovercity={(c) => (hoveredCity = c)}
-        onpickcity={pick}
-        onvisiblecount={(n) => (onFace = n)}
-      />
+      <div class="hero-body">
+        <div class="globe-slot">
+          <Globe
+            cities={shown}
+            {land}
+            {highlightNames}
+            {hoveredCity}
+            {picks}
+            focusCities={picks}
+            showCaption={false}
+            onhovercity={(c) => (hoveredCity = c)}
+            onpickcity={pick}
+            onvisiblecount={(n) => (onFace = n)}
+          />
+        </div>
 
+        <!-- The inventory: every city on screen at once, scrollable, so the
+             cities hidden round the back of the globe are still reachable. -->
+        <aside class="inventory">
+          <header class="inv-head">
+            <h2>All cities</h2>
+            <span class="count">{shown.length} of {cities.length}</span>
+          </header>
+
+          <div class="inv-list">
+            <CardGrid
+              {cities}
+              visibleNames={shownNames}
+              {measure}
+              {direction}
+              {hoveredCity}
+              {picks}
+              typeFirst={true}
+              onhovercity={(c) => (hoveredCity = c)}
+              onpickcity={pick}
+            />
+          </div>
+
+          <div class="inv-filters">
+            <label class="field">
+              <span class="eyebrow">Sort by</span>
+              <select bind:value={measureKey}>
+                {#each measureGroups as g}
+                  <optgroup label={g}>
+                    {#each AXIS_OPTIONS.filter((a) => a.group === g) as a}
+                      <option value={a.id}>{a.label}</option>
+                    {/each}
+                  </optgroup>
+                {/each}
+              </select>
+            </label>
+
+            <div class="field">
+              <span class="eyebrow">Order</span>
+              <div class="segmented">
+                <button aria-pressed={direction === 'desc'} onclick={() => (direction = 'desc')}>Most</button>
+                <button aria-pressed={direction === 'asc'} onclick={() => (direction = 'asc')}>Least</button>
+              </div>
+            </div>
+
+            <div class="field">
+              <span class="eyebrow">Show <span class="tag">removes</span></span>
+              <div class="segmented">
+                <button aria-pressed={categoryFilter === 'all'} onclick={() => (categoryFilter = 'all')}>All</button>
+                <button aria-pressed={categoryFilter === 'hidden'} onclick={() => (categoryFilter = 'hidden')}>Gems</button>
+                <button aria-pressed={categoryFilter === 'popular'} onclick={() => (categoryFilter = 'popular')}>Big</button>
+              </div>
+            </div>
+
+            <label class="field">
+              <span class="eyebrow">Highlight <span class="tag">dims only</span></span>
+              <select bind:value={highlightGroup}>
+                <option value={null}>No highlight</option>
+                {#each archetypes as a}<option value={a}>{a}</option>{/each}
+              </select>
+            </label>
+          </div>
+        </aside>
       </div>
 
       <div class="hero-stack">
@@ -126,25 +204,6 @@
           {/if}
           <button onclick={() => (picks = [])}>Clear</button>
         {/if}
-      </div>
-
-      <div class="pills-row">
-        <span class="eyebrow">Highlight an archetype</span>
-        <div class="pills">
-          {#each archetypes as a}
-            <button
-              class="pill"
-              aria-pressed={highlightGroup === a}
-              onclick={() => (highlightGroup = highlightGroup === a ? null : a)}
-            >{a}</button>
-          {/each}
-          {#if highlightGroup}
-            <button class="pill clear-pill" onclick={() => (highlightGroup = null)}>Clear</button>
-          {/if}
-        </div>
-        <p class="note">
-          Highlighting dims the rest — it never removes them, and they stay clickable.
-        </p>
       </div>
 
       <div class="hero-foot">
@@ -217,23 +276,80 @@
     height: 100dvh;
     overflow: hidden;
   }
-  .globe-slot {
+  /* Globe and inventory share the hero. The globe keeps the centre of
+     attention; the inventory makes the far side of the sphere reachable. */
+  .hero-body {
     position: absolute;
     inset: 0;
-    /* Keeps the sphere clear of the floating header and control stack. */
-    padding: 58px 16px 132px;
-    display: flex;
-    justify-content: center;
-    --globe-max: 1000px;
+    padding: 62px 20px 104px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 20px;
+    align-items: center;
   }
-  .globe-slot :global(figure) { height: 100%; width: 100%; }
+  .globe-slot {
+    min-width: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .globe-slot :global(figure) { height: 100%; width: 100%; justify-content: center; }
   /* Size the sphere from one dimension and let aspect-ratio supply the other.
-     Letting flex resolve both left it 605x647 — square only by accident. */
+     Letting flex resolve both left it square only by accident. */
   .globe-slot :global(.stage) {
     flex: none;
-    width: min(100%, calc(100dvh - 210px), 1000px);
+    width: min(100%, calc(100dvh - 240px));
     height: auto;
     aspect-ratio: 1;
+  }
+
+  .inventory {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 6px 12px 12px;
+    --card-min: 148px;
+  }
+  .inv-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 10px; padding-right: 6px;
+  }
+  .inv-head h2 { font-size: 0.95rem; }
+  .count { font-size: 0.72rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+  /* Its own scroller, so running out of cards hands the scroll back to the
+     page and the snap still works. */
+  .inv-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 2px 6px 2px 2px;
+  }
+  .inv-list::-webkit-scrollbar { width: 8px; }
+  .inv-list::-webkit-scrollbar-thumb {
+    background: var(--border); border-radius: 4px;
+  }
+
+  .inv-filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 10px;
+    padding: 10px 10px 2px 0;
+    border-top: 1px solid var(--border);
+  }
+  .inv-filters .field { gap: 3px; }
+  .inv-filters select { width: 100%; }
+  .inv-filters .segmented button { flex: 1; padding: 4px 6px; }
+  .tag {
+    font-weight: 500; letter-spacing: 0.02em; text-transform: none;
+    color: var(--text-muted);
   }
 
   .hero-top {
@@ -249,6 +365,9 @@
   .hero-top a, .hero-top nav { pointer-events: auto; }
   .hero-top h1 { margin-top: 4px; font-size: 1.3rem; }
   nav { display: flex; gap: 14px; font-size: 0.78rem; white-space: nowrap; }
+
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .segmented { display: flex; gap: 4px; }
 
   .hero-foot {
     display: flex; align-items: center; justify-content: center;
@@ -278,7 +397,6 @@
 
   /* Everything from the selection bar down floats at the foot of the hero. */
   .hero .selected-bar,
-  .hero .pills-row,
   .hero .hero-foot { position: relative; z-index: 2; }
 
   .selected-bar {
@@ -318,11 +436,6 @@
   .km { font-size: 0.78rem; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
   .face { font-size: 0.7rem; color: var(--text-muted); }
 
-  .pills-row {
-    display: flex; flex-direction: column; align-items: center; gap: 7px;
-    max-width: 680px; text-align: center;
-  }
-  .pills { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
   /* Legend is shared with Prototype A, so centre it only inside this panel. */
   .hero :global(.legend) {
     justify-content: center;

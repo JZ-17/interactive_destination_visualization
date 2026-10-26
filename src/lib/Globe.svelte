@@ -27,6 +27,12 @@
     arcLift = 0.16,
     /** The hero layout floats its own caption, so it turns this one off. */
     showCaption = true,
+    /**
+     * City names the globe should turn to show. One name faces that city; two
+     * face the midpoint between them, so a selected pair and the arc joining
+     * it are both on the near side.
+     */
+    focusCities = [],
     onhovercity = () => {},
     onpickcity = () => {},
     /** Reports how many cities are on the near hemisphere right now. */
@@ -67,6 +73,25 @@
     faceCity(name);
     onpickcity(name);
   }
+
+  /**
+   * Turn the globe to whatever the caller asked for. This is what makes a card
+   * clicked in the inventory usable: without it a city on the far side would
+   * be selected but invisible, and the arc would have nowhere to land.
+   */
+  $effect(() => {
+    const names = focusCities.filter((n) => byName.has(n));
+    if (!names.length) return;
+    if (names.length === 1) {
+      const c = byName.get(names[0]);
+      rotation = [-c.lon, -c.lat];
+      return;
+    }
+    const a = byName.get(names[0]);
+    const b = byName.get(names[names.length - 1]);
+    const mid = geoInterpolate([a.lon, a.lat], [b.lon, b.lat])(0.5);
+    rotation = [-mid[0], -mid[1]];
+  });
 
   // --- drag to spin ------------------------------------------------------
   let last = null;

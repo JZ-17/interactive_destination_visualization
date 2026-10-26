@@ -17,6 +17,8 @@
     picked = false,
     hovered = false,
     dimmed = false,
+    /** Lead with the city's archetype rather than its measure value. */
+    typeFirst = false,
     onhover = () => {},
     onpick = () => {}
   } = $props();
@@ -41,6 +43,10 @@
   onfocus={() => onhover(city.city)}
   onblur={() => onhover(null)}
 >
+  {#if typeFirst}
+    <p class="type">{city.archetype}</p>
+  {/if}
+
   <header>
     <div class="who">
       <h3>{city.city}</h3>
@@ -56,7 +62,7 @@
   <div class="track"><div class="fill" style="width:{pct}%"></div></div>
 
   <footer>
-    <span class="chip">{city.archetype}</span>
+    {#if !typeFirst}<span class="chip">{city.archetype}</span>{/if}
     <span class="chip muted">{city.personality}</span>
   </footer>
 </button>
@@ -69,25 +75,44 @@
     cursor: pointer;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 12px 13px 11px;
+    gap: 7px;
+    padding: 11px 12px 10px;
     background: var(--surface-1);
     border: 1px solid var(--border);
     border-left: 3px solid var(--big);
     border-radius: var(--radius);
-    transition: opacity 120ms, transform 120ms, border-color 120ms;
+    position: relative;
+    transition: opacity 120ms, transform 140ms ease-out, border-color 120ms,
+                box-shadow 140ms ease-out;
   }
   .card.gem { border-left-color: var(--gem); }
-  .card:hover, .card.hovered { transform: translateY(-2px); border-color: var(--text-muted); }
-  .card.gem:hover, .card.gem.hovered { border-left-color: var(--gem); }
-  .card:hover, .card.hovered { border-left-color: var(--big); }
-  .card.gem:hover, .card.gem.hovered { border-left-color: var(--gem); }
+  /* Hover grows the card. transform-origin:center keeps it from shoving its
+     neighbours around, and the raised z-index stops the grid clipping it. */
+  .card:hover, .card.hovered {
+    transform: scale(1.045);
+    border-color: var(--text-muted);
+    box-shadow: 0 6px 18px rgba(25, 30, 59, 0.12);
+    z-index: 2;
+  }
   .card.picked {
+    transform: scale(1.03);
     border-color: var(--text-primary);
     box-shadow: inset 0 0 0 1px var(--text-primary);
+    z-index: 2;
   }
+  .card.picked:hover, .card.picked.hovered { transform: scale(1.06); }
   .card.dimmed { opacity: 0.3; }
   .card:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 2px; }
+
+  /* Type-led layout: the archetype reads first, the way a personality result
+     does. Colour still carries category only, so the type is set in ink. */
+  .type {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
 
   header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
   h3 { font-size: 0.92rem; line-height: 1.2; }

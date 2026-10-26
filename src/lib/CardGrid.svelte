@@ -18,6 +18,8 @@
     direction = 'desc',
     hoveredCity = null,
     picks = [],
+    /** Lead each card with its archetype rather than the measure value. */
+    typeFirst = false,
     onhovercity = () => {},
     onpickcity = () => {}
   } = $props();
@@ -45,6 +47,7 @@
         {max}
         rank={r.rank}
         total={cities.length}
+        {typeFirst}
         picked={picks.includes(r.city.city)}
         hovered={hoveredCity === r.city.city}
         onhover={onhovercity}
@@ -63,7 +66,7 @@
   .grid > :global(div) > :global(*) { width: 100%; }
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(188px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(var(--card-min, 188px), 1fr));
     gap: 10px;
   }
   .empty { padding: 28px; text-align: center; }
