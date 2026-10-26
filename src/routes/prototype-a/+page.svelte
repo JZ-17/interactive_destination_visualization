@@ -15,6 +15,7 @@
   import { loadCities, AXIS_OPTIONS, axisById } from '$lib/data.js';
   import CardGrid from '$lib/CardGrid.svelte';
   import HeadToHead from '$lib/HeadToHead.svelte';
+  import WordGraph from '$lib/WordGraph.svelte';
   import Legend from '$lib/Legend.svelte';
 
   let cities = $state([]);
@@ -25,6 +26,8 @@
   let direction = $state('desc');        // SORT
   let categoryFilter = $state('all');    // FILTER: all | popular | hidden
   let hoveredCity = $state(null);        // LINK
+  let wordPool = $state('adjectives');   // which vocabulary the graph shows
+  let selectedWord = $state(null);       // LINK into the shared-word graph
   let picks = $state([]);                // up to two, for the comparison
 
   let measure = $derived(axisById(measureKey));
@@ -180,6 +183,20 @@
       </p>
     </section>
 
+    <!-- Trends across the whole corpus, rather than one city at a time. -->
+    <section class="panel trends">
+      <WordGraph
+        {cities}
+        poolId={wordPool}
+        {selectedWord}
+        {hoveredCity}
+        {picks}
+        onselectword={({ pool, word }) => { wordPool = pool; selectedWord = word; }}
+        onhovercity={(c) => (hoveredCity = c)}
+        onpickcity={pick}
+      />
+    </section>
+
     <section class="panel compare">
       <HeadToHead
         a={cityA}
@@ -320,6 +337,7 @@
   .legend-slot { margin-left: auto; }
 
   .hint { border-top: 1px solid var(--border); padding-top: 9px; margin-top: 12px; }
+  .trends { padding: 20px 22px 18px; }
   .error { color: var(--text-primary); }
   footer { border-top: 1px solid var(--border); padding-top: 12px; max-width: 72ch; }
 

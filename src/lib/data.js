@@ -214,6 +214,38 @@ export const AXIS_OPTIONS = [
 
 export const axisById = (id) => AXIS_OPTIONS.find((a) => a.id === id);
 
+/**
+ * The word pools the shared-vocabulary graph can switch between. Each is a
+ * raw extraction from the scrape, so a word here is one a tourism board
+ * actually wrote — not a lemma we invented.
+ */
+export const WORD_POOLS = [
+  { id: 'adjectives', label: 'Adjectives', get: (c) => c.adjectives },
+  { id: 'highSentimentNouns', label: 'Charged nouns', get: (c) => c.highSentimentNouns },
+  { id: 'superlatives', label: 'Superlatives', get: (c) => c.superlatives },
+  { id: 'nounModifiers', label: 'Noun modifiers', get: (c) => c.nounModifiers },
+  { id: 'adjectivePhrases', label: 'Adjective phrases', get: (c) => c.adjectivePhrases }
+];
+
+/**
+ * Which cities use each word in a pool, keyed by the lowercased word.
+ * Duplicates inside one city collapse: this counts cities, not mentions.
+ */
+export function wordIndex(cities, pool) {
+  const index = new Map();
+  for (const c of cities) {
+    const seen = new Set();
+    for (const raw of pool.get(c) ?? []) {
+      const w = raw.trim().toLowerCase();
+      if (!w || seen.has(w)) continue;
+      seen.add(w);
+      if (!index.has(w)) index.set(w, []);
+      index.get(w).push(c.city);
+    }
+  }
+  return index;
+}
+
 const num = (s) => {
   const v = parseFloat(s);
   return Number.isFinite(v) ? v : 0;
@@ -279,6 +311,13 @@ export async function loadCities(fetchImpl = fetch) {
       vocabularyRichness: num(r['Vocabulary richness']),
       rareWordShare: num(r['Rare word share']),
       signatureWord: r['Signature word'],
+
+      // Raw word lists, for the shared-vocabulary graph.
+      adjectives: list(r.Adjectives),
+      adjectivePhrases: list(r['Adjective phrases']),
+      superlatives: list(r.Superlatives),
+      nounModifiers: list(r['Noun modifiers']),
+      highSentimentNouns: list(r['High sentiment nouns']),
 
       fingerprintWords: list(r['Fingerprint words']),
       descriptiveFingerprint: list(r['Descriptive fingerprint']),
