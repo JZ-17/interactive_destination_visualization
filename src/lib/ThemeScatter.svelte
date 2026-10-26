@@ -30,6 +30,8 @@
      * rest of the cities stay plotted and stay interactive, just dimmed.
      */
     highlightNames = null,
+    /** Fill each dot with its city's own hue instead of its category. */
+    cityColor = false,
     onhovercity = () => {},
     onpickcity = () => {},
     onchangeaxis = () => {}
@@ -131,10 +133,12 @@
         {@const filteredOut = !visible.has(c.city)}
         {@const notHighlit = highlightNames ? !highlightNames.has(c.city) : false}
         <circle
+          style={cityColor && c.hue !== undefined ? `--dot-city: hsl(${c.hue} 62% 52%);` : undefined}
           cx={x(xAxis.get(c))}
           cy={y(yAxis.get(c))}
           r={picks.includes(c.city) ? 7 : 5.5}
           class="dot"
+          class:city-color={cityColor}
           class:gem={c.category === 'hidden'}
           class:dim={filteredOut}
           class:faded={notHighlit && !filteredOut}
@@ -186,6 +190,8 @@
     transition: opacity 120ms;
   }
   .dot.gem { fill: var(--gem); }
+  /* Repeat .gem so the city hue wins on specificity, not source order. */
+  .dot.city-color, .dot.city-color.gem { fill: var(--dot-city, var(--big)); }
   /* Filtered out: gone from the reading, and not clickable. */
   .dot.dim { opacity: 0.15; pointer-events: none; }
   /* Merely un-highlighted: still in the data, still clickable. */

@@ -23,6 +23,7 @@
   import HeadToHead from '$lib/HeadToHead.svelte';
   import Legend from '$lib/Legend.svelte';
   import WordGraph from '$lib/WordGraph.svelte';
+  import ThemeOrbit from '$lib/ThemeOrbit.svelte';
 
   let cities = $state([]);
   let countries = $state(null);
@@ -330,6 +331,16 @@
 
     <!-- Screen two: everything that is about the whole corpus. -->
     <section class="trends">
+    <header class="trendhead">
+      <p class="eyebrow">Across all fifty</p>
+      <h2>The wider picture</h2>
+      <p class="note">
+        Three views of the whole set: the words nearly all of them reach for,
+        how hard each pushes the theme it is known for, and where any two
+        measures put them.
+      </p>
+    </header>
+
     <!-- The corpus-wide view: which words nearly all of them reach for. -->
     <section class="panel">
       <WordGraph
@@ -339,6 +350,16 @@
         {hoveredCity}
         {picks}
         onselectword={({ pool, word }) => { wordPool = pool; selectedWord = word; }}
+        onhovercity={(c) => (hoveredCity = c)}
+        onpickcity={pick}
+      />
+    </section>
+
+    <section class="panel">
+      <ThemeOrbit
+        cities={shown}
+        {hoveredCity}
+        {picks}
         onhovercity={(c) => (hoveredCity = c)}
         onpickcity={pick}
       />
@@ -698,6 +719,10 @@
     display: flex; flex-direction: column; align-items: center; gap: 8px;
     padding: 0 16px;
   }
+
+  .trendhead { padding: 4px 2px 2px; }
+  .trendhead h2 { font-size: 1.35rem; margin-top: 3px; letter-spacing: -0.02em; }
+  .trendhead .note { margin-top: 6px; max-width: 70ch; }
 
   /* Screen two scrolls normally inside its own snap area. */
   .trends {
