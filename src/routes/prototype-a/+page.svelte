@@ -72,7 +72,7 @@
 
 <svelte:head><title>Prototype A — Rank the 50</title></svelte:head>
 
-<main>
+<main class="apple">
   <header class="top">
     <div>
       <p class="eyebrow">Prototype A · sorted card gallery</p>
@@ -83,10 +83,6 @@
         two cards to put those cities head to head.
       </p>
     </div>
-    <nav>
-      <a href="../">Overview</a>
-      <a href="../prototype-b/">Prototype B →</a>
-    </nav>
   </header>
 
   {#if error}
@@ -200,6 +196,89 @@
 </main>
 
 <style>
+  /* --- Apple-flavoured surface treatment, scoped to this prototype ---------
+     Prototype B keeps the Expedia tan; A is deliberately a different skin so
+     the two can be judged side by side. Only chrome changes here — the data
+     colours are untouched, and both were re-validated against this lighter
+     surface (both clear 3:1). */
+  :global(body:has(main.apple)) {
+    background:
+      radial-gradient(1200px 600px at 50% -10%, #ffffff 0%, rgba(255,255,255,0) 60%),
+      #f5f5f7;
+  }
+
+  main.apple {
+    --ring: rgba(22, 104, 227, 0.35);
+    --lift-1: 0 1px 2px rgba(0, 0, 0, 0.04);
+    --lift-2: 0 4px 16px rgba(0, 0, 0, 0.06);
+    --lift-3: 0 18px 48px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Panels: soft, layered, generously rounded. */
+  main.apple :global(.panel) {
+    background: rgba(255, 255, 255, 0.78);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 18px;
+    box-shadow: var(--lift-1), var(--lift-2);
+    padding: 18px 20px;
+  }
+
+  /* Cards: lift and glow on hover, the glow tinted by the city's category. */
+  main.apple :global(.card) {
+    border-radius: 16px;
+    border-color: rgba(0, 0, 0, 0.06);
+    box-shadow: var(--lift-1);
+  }
+  main.apple :global(.card:hover),
+  main.apple :global(.card.hovered) {
+    box-shadow:
+      0 0 0 3px rgba(22, 104, 227, 0.14),
+      var(--lift-3);
+    border-color: rgba(22, 104, 227, 0.25);
+  }
+  main.apple :global(.card.gem:hover),
+  main.apple :global(.card.gem.hovered) {
+    box-shadow:
+      0 0 0 3px rgba(199, 122, 0, 0.16),
+      var(--lift-3);
+    border-color: rgba(199, 122, 0, 0.3);
+  }
+  main.apple :global(.card.picked) {
+    box-shadow:
+      0 0 0 3px rgba(22, 104, 227, 0.28),
+      var(--lift-2);
+  }
+  main.apple :global(.card.gem.picked) {
+    box-shadow:
+      0 0 0 3px rgba(199, 122, 0, 0.3),
+      var(--lift-2);
+  }
+
+  /* Controls: pill-shaped, with a hairline and a soft press state. */
+  main.apple :global(button),
+  main.apple :global(select) {
+    border-radius: 980px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: var(--lift-1);
+    padding: 6px 14px;
+    transition: box-shadow 140ms, transform 140ms, background-color 140ms;
+  }
+  main.apple :global(select) { padding-right: 26px; }
+  main.apple :global(button:hover) {
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.04), var(--lift-2);
+  }
+  main.apple :global(button:active) { transform: scale(0.97); }
+  main.apple :global(button[aria-pressed='true']) {
+    background: linear-gradient(180deg, #2d7df0 0%, #1668e3 100%);
+    border-color: transparent;
+    color: #fff;
+    box-shadow: 0 0 0 3px var(--ring), var(--lift-2);
+  }
+
   main {
     max-width: 1180px;
     margin: 0 auto;
@@ -209,8 +288,20 @@
     gap: 14px;
   }
   .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
-  .top h1 { margin-top: 5px; }
-  .lede { margin-top: 7px; max-width: 62ch; color: var(--text-secondary); font-size: 0.86rem; line-height: 1.5; }
+  main.apple { padding-top: 48px; }
+  .top h1 {
+    margin-top: 8px;
+    font-size: 2.3rem;
+    font-weight: 700;
+    letter-spacing: -0.028em;
+    line-height: 1.08;
+  }
+  .lede {
+    margin-top: 12px; max-width: 58ch;
+    color: var(--text-secondary);
+    font-size: 1.02rem; line-height: 1.55;
+    letter-spacing: -0.01em;
+  }
   nav { display: flex; gap: 14px; font-size: 0.78rem; white-space: nowrap; }
 
   .controls { display: flex; gap: 22px; align-items: flex-end; flex-wrap: wrap; }
