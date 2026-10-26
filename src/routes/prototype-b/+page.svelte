@@ -27,6 +27,7 @@
 
   // --- shared selection state, one owner each ---------------------------
   let picks = $state([]);            // SELECT, up to two
+  let onFace = $state(0);            // cities currently on the near hemisphere
   let hoveredCity = $state(null);    // LINK
   let highlightGroup = $state(null); // LINK (archetype)
   let xKey = $state('theme:History');
@@ -68,45 +69,47 @@
 
 <svelte:head><title>Prototype B — Spin the globe, pick two</title></svelte:head>
 
-<main>
-  <header class="top">
-    <div>
-      <p class="eyebrow">Prototype B · globe-led comparison</p>
-      <h1>Pick two cities anywhere on Earth. Do they sound alike?</h1>
-      <p class="lede">
-        Spin the globe and click two cities. Everything below fills in for that
-        pair: what each one talks about, how each one sells itself, and where
-        both sit against the other forty-eight.
-      </p>
-    </div>
-    <nav>
-      <a href="../">Overview</a>
-      <a href="../prototype-a/">← Prototype A</a>
-    </nav>
-  </header>
-
+<main class="snap">
   {#if error}
-    <p class="panel error">Could not load the data: {error}</p>
+    <section class="hero"><p class="panel error">Could not load the data: {error}</p></section>
   {:else if !cities.length}
-    <p class="panel note">Loading 50 cities…</p>
+    <section class="hero"><p class="note">Loading 50 cities…</p></section>
   {:else}
-    <section class="panel globe-panel">
+    <!-- Screen one: the globe, and nothing competing with it. -->
+    <section class="hero">
+      <header class="hero-top">
+        <div>
+          <p class="eyebrow">Prototype B · globe-led comparison</p>
+          <h1>Pick two cities anywhere on Earth. Do they sound alike?</h1>
+        </div>
+        <nav>
+          <a href="../">Overview</a>
+          <a href="../prototype-a/">← Prototype A</a>
+        </nav>
+      </header>
+
+      <div class="globe-slot">
       <Globe
         {cities}
         {land}
         {highlightNames}
         {hoveredCity}
         {picks}
+        showCaption={false}
         onhovercity={(c) => (hoveredCity = c)}
         onpickcity={pick}
+        onvisiblecount={(n) => (onFace = n)}
       />
 
+      </div>
+
+      <div class="hero-stack">
       <!-- Selection sits directly under the globe: it is click feedback, so it
            has to stay next to the thing being clicked. Fixed min-height so the
            page does not jump as picks come and go. -->
       <div class="selected-bar" aria-live="polite">
         {#if picks.length === 0}
-          <p class="note">Click a city to select it. Pick two to compare them.</p>
+          <p class="note"><strong>Drag to spin.</strong> Click a city to select — pick two to compare.</p>
         {:else}
           <ul class="picklist">
             {#each picks as name (name)}
@@ -146,9 +149,16 @@
         </p>
       </div>
 
-      <Legend />
+      <div class="hero-foot">
+        <Legend note={false} />
+        <span class="face">{onFace} of {cities.length} cities on this face</span>
+        <span class="cue" aria-hidden="true">Scroll for the wider picture ↓</span>
+      </div>
+      </div>
     </section>
 
+    <!-- Screen two: everything that is about the whole corpus. -->
+    <section class="trends">
     <section class="panel">
       <HeadToHead
         a={cityA}
@@ -182,11 +192,83 @@
       Theme measures are mentions per 1,000 words. Source: official
       tourism-board homepage text, 50 cities.
     </footer>
+    </section>
   {/if}
 </main>
 
 <style>
-  main {
+  /* Two screens, and no resting place between them: scrolling down lands on
+     the trends, scrolling up returns to the globe. The scroll container is
+     this page rather than the document, so the snap never leaks to other
+     routes. */
+  .snap {
+    height: 100dvh;
+    overflow-y: auto;
+    scroll-snap-type: y mandatory;
+    scroll-behavior: smooth;
+  }
+  .hero, .trends { scroll-snap-align: start; scroll-snap-stop: always; }
+
+  /* The hero is exactly one screen: header / globe / controls stacked, with
+     the globe taking whatever is left so it is always as large as it can be. */
+  /* Controls float over the globe rather than stacking above and below it.
+     Stacked, the header and the control rows took ~340px of an 900px screen
+     and the sphere could only reach 560. Overlaid, it reaches ~720. */
+  .hero {
+    position: relative;
+    height: 100dvh;
+    overflow: hidden;
+  }
+  .globe-slot {
+    position: absolute;
+    inset: 0;
+    /* Keeps the sphere clear of the floating header and control stack. */
+    padding: 58px 16px 132px;
+    display: flex;
+    justify-content: center;
+    --globe-max: 1000px;
+  }
+  .globe-slot :global(figure) { height: 100%; width: 100%; }
+  /* Size the sphere from one dimension and let aspect-ratio supply the other.
+     Letting flex resolve both left it 605x647 — square only by accident. */
+  .globe-slot :global(.stage) {
+    flex: none;
+    width: min(100%, calc(100dvh - 210px), 1000px);
+    height: auto;
+    aspect-ratio: 1;
+  }
+
+  .hero-top {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    z-index: 2;
+    padding: 16px 20px;
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 24px;
+    pointer-events: none;
+  }
+  .hero-top a, .hero-top nav { pointer-events: auto; }
+  .hero-top h1 { margin-top: 4px; font-size: 1.3rem; }
+  nav { display: flex; gap: 14px; font-size: 0.78rem; white-space: nowrap; }
+
+  .hero-foot {
+    display: flex; align-items: center; justify-content: center;
+    gap: 16px; flex-wrap: wrap;
+  }
+  .cue { font-size: 0.7rem; color: var(--text-muted); }
+
+  /* The floating foot: selection, pills and legend in one centred stack. */
+  .hero-stack {
+    position: absolute;
+    left: 0; right: 0; bottom: 14px;
+    z-index: 2;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    padding: 0 16px;
+  }
+
+  /* Screen two scrolls normally inside its own snap area. */
+  .trends {
     max-width: 1100px;
     margin: 0 auto;
     padding: 28px 16px 60px;
@@ -194,19 +276,12 @@
     flex-direction: column;
     gap: 14px;
   }
-  .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
-  .top h1 { margin-top: 5px; font-size: 1.45rem; }
-  .lede { margin-top: 7px; max-width: 62ch; color: var(--text-secondary); font-size: 0.86rem; line-height: 1.5; }
-  nav { display: flex; gap: 14px; font-size: 0.78rem; white-space: nowrap; }
 
-  /* The globe is radially symmetric, so it is centred rather than set beside a
-     sidebar — off-centre it reads as an illustration next to a panel. */
-  .globe-panel {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
-  }
+
+  /* Everything from the selection bar down floats at the foot of the hero. */
+  .hero .selected-bar,
+  .hero .pills-row,
+  .hero .hero-foot { position: relative; z-index: 2; }
 
   .selected-bar {
     display: flex;
@@ -214,7 +289,10 @@
     justify-content: center;
     flex-wrap: wrap;
     gap: 10px 14px;
-    min-height: 38px;
+    /* Fixed, not min-: the picked state's chips are a hair taller than the
+       hint text, and the bar is bottom-anchored, so any height change nudges
+       it. Both states are one line, so a fixed height is safe here. */
+    height: 42px;
     padding: 6px 14px;
     border: 1px solid var(--border);
     border-radius: 999px;
@@ -235,6 +313,7 @@
   }
   .drop:hover { color: var(--text-primary); background: none; }
   .km { font-size: 0.78rem; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+  .face { font-size: 0.7rem; color: var(--text-muted); }
 
   .pills-row {
     display: flex; flex-direction: column; align-items: center; gap: 7px;
@@ -242,7 +321,7 @@
   }
   .pills { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
   /* Legend is shared with Prototype A, so centre it only inside this panel. */
-  .globe-panel :global(.legend) {
+  .hero :global(.legend) {
     justify-content: center;
     text-align: center;
     max-width: 620px;
@@ -255,7 +334,14 @@
   footer { border-top: 1px solid var(--border); padding-top: 12px; max-width: 72ch; }
 
   @media (max-width: 880px) {
-    /* .globe-panel is already a centred column; nothing to restack. */
-    .top { flex-direction: column; gap: 12px; }
+    /* Narrow screens wrap the bar, so let it grow again. */
+    .selected-bar { height: auto; min-height: 42px; }
+    .hero-top { flex-direction: column; gap: 8px; }
+    .hero-top h1 { font-size: 1.1rem; }
+  }
+
+  /* Snapping fights short viewports and anyone who prefers less motion. */
+  @media (max-height: 620px), (prefers-reduced-motion: reduce) {
+    .snap { scroll-snap-type: none; scroll-behavior: auto; }
   }
 </style>

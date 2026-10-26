@@ -19,8 +19,18 @@
     picks = [],
     /** Draw an arc between the two picked cities. */
     showPickArc = true,
+    /**
+     * How far the connecting arc bows away from the surface, as a fraction of
+     * the globe's radius. 0 hugs the sphere (a plain great circle); higher
+     * values lift it into a flight-path curve.
+     */
+    arcLift = 0.16,
+    /** The hero layout floats its own caption, so it turns this one off. */
+    showCaption = true,
     onhovercity = () => {},
-    onpickcity = () => {}
+    onpickcity = () => {},
+    /** Reports how many cities are on the near hemisphere right now. */
+    onvisiblecount = () => {}
   } = $props();
 
   const size = 720;
@@ -85,15 +95,83 @@
     }
   }
 
-  // An arc between the two selected cities, drawn as a great circle.
+  /**
+   * The arc between the two selected cities, bowed away from the straight line.
+   *
+   * The obvious trick — push each point radially outward from the globe's
+   * centre — does nothing here, because selecting a city rotates it to the
+   * centre of the disc, so the arc is already radial and scaling along that
+   * same radius leaves it straight. Instead we offset each point
+   * *perpendicular to the chord* by sin(pi * t): zero at both ends, widest in
+   * the middle, and curved no matter how the globe happens to be turned.
+   *
+   * Points on the far hemisphere are dropped rather than projected, since the
+   * orthographic projection would fold them back over the near side.
+   */
   let pickArc = $derived.by(() => {
     if (!showPickArc || picks.length < 2) return null;
     const a = byName.get(picks[0]);
     const b = byName.get(picks[1]);
     if (!a || !b) return null;
+
     const interp = geoInterpolate([a.lon, a.lat], [b.lon, b.lat]);
-    const coords = Array.from({ length: 61 }, (_, i) => interp(i / 60));
-    return path({ type: 'LineString', coordinates: coords });
+    const cx = size / 2;
+    const cy = size / 2;
+    const STEPS = 96;
+
+    // Walk the great circle, keeping only what faces the viewer.
+    const pts = [];
+    for (let i = 0; i <= STEPS; i++) {
+      const t = i / STEPS;
+      const geo = interp(t);
+      if (geoDistance(geo, centre) >= Math.PI / 2) {
+        pts.push(null);
+        continue;
+      }
+      const xy = projection(geo);
+      pts.push(xy ? { t, x: xy[0], y: xy[1] } : null);
+    }
+
+    const seen = pts.filter(Boolean);
+    if (seen.length < 2) return null;
+
+    // Chord between the visible endpoints sets the bow direction and scale.
+    const p0 = seen[0];
+    const p1 = seen[seen.length - 1];
+    const dx = p1.x - p0.x;
+    const dy = p1.y - p0.y;
+    const chord = Math.hypot(dx, dy);
+    if (chord < 1) return null;
+
+    let nx = -dy / chord;
+    let ny = dx / chord;
+    // Bow away from the globe's centre, so the arc lifts off the sphere.
+    const mid = seen[Math.floor(seen.length / 2)];
+    if ((mid.x - cx) * nx + (mid.y - cy) * ny < 0) {
+      nx = -nx;
+      ny = -ny;
+    }
+    const amp = arcLift * chord;
+    const span = p1.t - p0.t || 1;
+
+    const runs = [];
+    let run = [];
+    for (const q of pts) {
+      if (!q) {
+        if (run.length > 1) runs.push(run);
+        run = [];
+        continue;
+      }
+      const u = (q.t - p0.t) / span;             // 0 at one end, 1 at the other
+      const k = amp * Math.sin(Math.PI * u);
+      run.push([q.x + nx * k, q.y + ny * k]);
+    }
+    if (run.length > 1) runs.push(run);
+    if (!runs.length) return null;
+
+    return runs
+      .map((r) => r.map((q, i) => `${i ? 'L' : 'M'}${q[0].toFixed(2)},${q[1].toFixed(2)}`).join(''))
+      .join(' ');
   });
 
   const graticule = (() => {
@@ -115,6 +193,9 @@
   })();
 
   let visible = $derived(cities.filter(onFront));
+  // The far hemisphere is genuinely hidden, so this count is the only cue that
+  // the missing cities exist at all. Report it so the caller can surface it.
+  $effect(() => onvisiblecount(visible.length));
   let faded = (c) => (highlightNames ? !highlightNames.has(c.city) : false);
 </script>
 
@@ -132,11 +213,12 @@
     >
       <defs>
         <radialGradient id="globeShade" cx="35%" cy="32%" r="78%">
-          <stop offset="0%" stop-color="var(--globe-hi)" />
-          <stop offset="100%" stop-color="var(--globe-lo)" />
+          <stop offset="0%" stop-color="var(--ocean-hi)" />
+          <stop offset="100%" stop-color="var(--ocean-lo)" />
         </radialGradient>
       </defs>
 
+      <circle cx={size / 2} cy={size / 2} r={R + 3} class="glow" />
       <circle cx={size / 2} cy={size / 2} r={R} class="ocean" fill="url(#globeShade)" />
 
       {#each graticule as g}
@@ -190,74 +272,101 @@
     </svg>
   </div>
 
-  <figcaption>
-    <p class="note">
-      <strong>Drag to spin.</strong> Click a city to select it — the globe turns
-      to bring it to the front. Pick two to compare them below.
-      <span class="count">{visible.length} of {cities.length} cities on this face</span>
-    </p>
-  </figcaption>
+  {#if showCaption}
+    <figcaption>
+      <p class="note">
+        <strong>Drag to spin.</strong> Click a city to select it — the globe turns
+        to bring it to the front. Pick two to compare them below.
+        <span class="count">{visible.length} of {cities.length} cities on this face</span>
+      </p>
+    </figcaption>
+  {/if}
 </figure>
 
 <style>
   /* width:100% matters — in a centred flex column the figure would otherwise
-     shrink to fit its content and the globe would never reach its max size. */
-  figure { margin: 0; width: 100%; display: flex; flex-direction: column; gap: 10px; align-items: center; }
-  .stage { width: 100%; max-width: 720px; }
+     shrink to fit its content and the globe would never reach its max size.
+     min-height:0 lets .stage shrink inside a height-constrained parent, which
+     is what the full-screen hero needs. */
+  figure {
+    margin: 0; width: 100%; min-height: 0;
+    display: flex; flex-direction: column; gap: 10px; align-items: center;
+  }
+  /* Square by construction, so it fits whichever of width/height runs out. */
+  .stage {
+    flex: 1 1 auto;
+    min-height: 0;
+    /* Square, with the height the flex row gives it driving the width, so the
+       sphere grows until whichever of height or width runs out. */
+    aspect-ratio: 1;
+    width: auto;
+    max-width: min(100%, var(--globe-max, 720px));
+    margin-inline: auto;
+  }
 
   svg {
     width: 100%;
-    height: auto;
+    height: 100%;
+    display: block;
     cursor: grab;
     touch-action: none;
-    /* Shading steps for the sphere, defined per theme. */
-    --globe-hi: #ffffff;
-    --globe-lo: #eceae3;
+    /* Scenery colours — deliberately low-chroma so the category hues on the
+       city markers stay the most saturated thing on screen. */
+    --ocean-hi: #2f5f9e;
+    --ocean-lo: #101937;
+    --globe-land: #7b8296;
+    --globe-coast: #9aa0b2;
   }
   svg.dragging { cursor: grabbing; }
 
   @media (prefers-color-scheme: dark) {
     :global(:root:not([data-theme='light'])) svg {
-      --globe-hi: #262623;
-      --globe-lo: #141413;
+      --ocean-hi: #27507f;
+      --ocean-lo: #0a1128;
+      --globe-land: #5b6278;
+      --globe-coast: #767d92;
     }
   }
   :global(:root[data-theme='dark']) svg {
-    --globe-hi: #262623;
-    --globe-lo: #141413;
+    --ocean-hi: #27507f;
+    --ocean-lo: #0a1128;
+    --globe-land: #5b6278;
+    --globe-coast: #767d92;
   }
 
   .ocean { stroke: none; }
-  .rim { fill: none; stroke: var(--border); stroke-width: 1; }
-  .grat { fill: none; stroke: var(--gridline); stroke-width: 0.6; pointer-events: none; }
-  .land { fill: var(--land); stroke: var(--gridline); stroke-width: 0.5; pointer-events: none; }
+  .glow { fill: none; stroke: #8fc7f0; stroke-opacity: 0.35; stroke-width: 6; }
+  .rim { fill: none; stroke: rgba(255, 255, 255, 0.22); stroke-width: 1; }
+  .grat { fill: none; stroke: #ffffff; stroke-opacity: 0.13; stroke-width: 0.6; pointer-events: none; }
+  .land { fill: var(--globe-land); stroke: var(--globe-coast); stroke-width: 0.5; pointer-events: none; }
 
   .arc {
     fill: none;
-    stroke: var(--text-primary);
-    stroke-width: 2;
-    stroke-opacity: 0.6;
+    stroke: #ffffff;
+    stroke-width: 2.5;
+    stroke-opacity: 0.85;
     stroke-linecap: round;
     pointer-events: none;
   }
 
   .dot {
     fill: var(--big);
-    stroke: var(--surface-1);
+    /* A light ring keeps the category hue separable from the terrain under it. */
+    stroke: #f4f6f8;
     stroke-width: 1.5;
     cursor: pointer;
   }
   .dot.gem { fill: var(--gem); }
   .dot.faded { opacity: 0.25; }
-  .dot.picked, .dot.hovered { stroke: var(--text-primary); stroke-width: 2.5; }
+  .dot.picked, .dot.hovered { stroke: #ffffff; stroke-width: 3; }
   .dot:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 2px; }
 
   .label {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 650;
-    fill: var(--text-primary);
+    fill: #ffffff;
     paint-order: stroke;
-    stroke: var(--surface-1);
+    stroke: rgba(10, 20, 30, 0.85);
     stroke-width: 3.5;
     pointer-events: none;
   }

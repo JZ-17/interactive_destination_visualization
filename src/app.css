@@ -3,23 +3,27 @@
 :root {
   color-scheme: light;
 
-  --surface-1: #fcfcfb;
-  --page: #f9f9f7;
-  --text-primary: #0b0b0b;
-  --text-secondary: #52514e;
-  --text-muted: #898781;
-  --gridline: #e1e0d9;
-  --axis: #c3c2b7;
-  --border: rgba(11, 11, 11, 0.1);
-  --wash: rgba(11, 11, 11, 0.04);
+  --surface-1: #fffdfa;      /* warm white panels, so they lift off the tan */
+  --page: #f7f1e8;           /* Expedia's warm sand — the darkest tan that
+                                still keeps the amber data colour at 3:1 */
+  --text-primary: #191e3b;   /* Expedia navy */
+  --text-secondary: #4a5068;
+  --text-muted: #6b7186;
+  --gridline: #e7e2d8;
+  --axis: #cbc4b6;
+  --border: rgba(25, 30, 59, 0.14);
+  --wash: rgba(25, 30, 59, 0.05);
+  --accent: #1668e3;         /* Expedia blue, chrome only */
 
-  /* The only two data colours in the project. */
-  --big: #2a78d6;        /* big destination (Category = popular) */
-  --gem: #eb6834;        /* hidden gem      (Category = hidden)  */
-  --big-soft: rgba(42, 120, 214, 0.14);
-  --gem-soft: rgba(235, 104, 52, 0.14);
+  /* The only two data colours in the project. Expedia blue, plus the darkest
+     amber in Expedia's yellow family that still clears the contrast and CVD
+     gates — their actual #FFC94D measures 1.49:1 and cannot carry data. */
+  --big: #1668e3;        /* big destination (Category = popular) */
+  --gem: #c77a00;        /* hidden gem      (Category = hidden)  */
+  --big-soft: rgba(22, 104, 227, 0.12);
+  --gem-soft: rgba(199, 122, 0, 0.14);
 
-  --land: #ebeae4;
+  --land: #e8e2d6;
 
   --radius: 8px;
   --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -28,39 +32,41 @@
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme='light'])) {
     color-scheme: dark;
-    --surface-1: #1a1a19;
-    --page: #0d0d0d;
-    --text-primary: #f0efec;
-    --text-secondary: #c3c2b7;
-    --text-muted: #898781;
-    --gridline: #2c2c2a;
-    --axis: #383835;
-    --border: rgba(255, 255, 255, 0.1);
-    --wash: rgba(255, 255, 255, 0.05);
-    --big: #3987e5;
-    --gem: #d95926;
-    --big-soft: rgba(57, 135, 229, 0.18);
-    --gem-soft: rgba(217, 89, 38, 0.18);
-    --land: #242422;
+    --surface-1: #191e3b;
+    --page: #10142b;
+    --text-primary: #f2f4f8;
+    --text-secondary: #b9c0d4;
+    --text-muted: #8a91a8;
+    --gridline: #2a3054;
+    --axis: #39406a;
+    --border: rgba(255, 255, 255, 0.12);
+    --wash: rgba(255, 255, 255, 0.06);
+  --accent: #3b87f0;
+    --big: #3b87f0;
+    --gem: #bf8228;
+    --big-soft: rgba(59, 135, 240, 0.2);
+    --gem-soft: rgba(191, 130, 40, 0.2);
+    --land: #262c4e;
   }
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --surface-1: #1a1a19;
-  --page: #0d0d0d;
-  --text-primary: #f0efec;
-  --text-secondary: #c3c2b7;
-  --text-muted: #898781;
-  --gridline: #2c2c2a;
-  --axis: #383835;
-  --border: rgba(255, 255, 255, 0.1);
-  --wash: rgba(255, 255, 255, 0.05);
-  --big: #3987e5;
-  --gem: #d95926;
-  --big-soft: rgba(57, 135, 229, 0.18);
-  --gem-soft: rgba(217, 89, 38, 0.18);
-  --land: #242422;
+  --surface-1: #191e3b;
+  --page: #10142b;
+  --text-primary: #f2f4f8;
+  --text-secondary: #b9c0d4;
+  --text-muted: #8a91a8;
+  --gridline: #2a3054;
+  --axis: #39406a;
+  --border: rgba(255, 255, 255, 0.12);
+  --wash: rgba(255, 255, 255, 0.06);
+  --accent: #3b87f0;
+  --big: #3b87f0;
+  --gem: #bf8228;
+  --big-soft: rgba(59, 135, 240, 0.2);
+  --gem-soft: rgba(191, 130, 40, 0.2);
+  --land: #262c4e;
 }
 
 * { box-sizing: border-box; }
@@ -80,6 +86,7 @@ h2 { font-size: 1.05rem; }
 h3 { font-size: 0.82rem; }
 p { margin: 0; }
 a { color: inherit; }
+a:hover { color: var(--accent); }
 
 .panel {
   background: var(--surface-1);
