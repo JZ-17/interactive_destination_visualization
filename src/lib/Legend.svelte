@@ -24,8 +24,14 @@
     color: var(--text-secondary);
   }
   .item { display: inline-flex; align-items: center; gap: 6px; }
-  .sw { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
-  .sw.big { background: var(--big); }
-  .sw.gem { background: var(--gem); }
+  /* A ring, not a disc: on the globe the category is the marker's ring, since
+     every country underneath is a different colour. */
+  .sw {
+    width: 12px; height: 12px; border-radius: 50%;
+    display: inline-block; box-sizing: border-box;
+    background: #fffdf8; border: 3px solid;
+  }
+  .sw.big { border-color: var(--big); }
+  .sw.gem { border-color: var(--gem); }
   .caveat { color: var(--text-muted); font-size: 0.7rem; max-width: 52ch; }
 </style>

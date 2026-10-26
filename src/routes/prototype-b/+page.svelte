@@ -15,7 +15,7 @@
    * and ranks all fifty; B starts from a place and drills into a pair.
    */
   import { onMount } from 'svelte';
-  import { loadCities, loadLand, greatCircleKm, AXIS_OPTIONS, axisById } from '$lib/data.js';
+  import { loadCities, loadCountries, greatCircleKm, AXIS_OPTIONS, axisById } from '$lib/data.js';
   import Globe from '$lib/Globe.svelte';
   import CardGrid from '$lib/CardGrid.svelte';
   import ThemeScatter from '$lib/ThemeScatter.svelte';
@@ -23,7 +23,7 @@
   import Legend from '$lib/Legend.svelte';
 
   let cities = $state([]);
-  let land = $state(null);
+  let countries = $state(null);
   let error = $state(null);
 
   // --- shared selection state, one owner each ---------------------------
@@ -71,9 +71,9 @@
 
   onMount(async () => {
     try {
-      const [loaded, geo] = await Promise.all([loadCities(), loadLand()]);
+      const [loaded, geo] = await Promise.all([loadCities(), loadCountries()]);
       cities = loaded.cities;
-      land = geo;
+      countries = geo;
     } catch (e) {
       error = e.message;
     }
@@ -105,7 +105,7 @@
         <div class="globe-slot">
           <Globe
             cities={shown}
-            {land}
+            {countries}
             {highlightNames}
             {hoveredCity}
             {picks}
@@ -278,18 +278,16 @@
   }
   /* Globe and inventory share the hero. The globe keeps the centre of
      attention; the inventory makes the far side of the sphere reachable. */
+  /* The globe stays centred on the page; the inventory floats over the right
+     instead of taking a grid column, which would push the sphere off centre. */
   .hero-body {
     position: absolute;
     inset: 0;
     padding: 62px 20px 104px;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 340px;
-    gap: 20px;
-    align-items: center;
   }
   .globe-slot {
-    min-width: 0;
-    height: 100%;
+    position: absolute;
+    inset: 62px 20px 104px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -299,13 +297,20 @@
      Letting flex resolve both left it square only by accident. */
   .globe-slot :global(.stage) {
     flex: none;
-    width: min(100%, calc(100dvh - 240px));
+    /* Leave room for the floating inventory on the right (340px + gutters)
+       on both sides, so the sphere stays centred and never runs under it. */
+    width: min(calc(100% - 720px), calc(100dvh - 240px));
     height: auto;
     aspect-ratio: 1;
   }
 
   .inventory {
-    height: 100%;
+    position: absolute;
+    top: 62px;
+    right: 20px;
+    bottom: 104px;
+    width: 340px;
+    z-index: 3;
     min-height: 0;
     display: flex;
     flex-direction: column;

@@ -12,7 +12,8 @@
 
   let {
     cities = [],
-    land = null,
+    /** GeoJSON FeatureCollection of countries. */
+    countries = null,
     /** Names to keep emphasised; the rest stay drawn and clickable. */
     highlightNames = null,
     hoveredCity = null,
@@ -199,6 +200,21 @@
       .join(' ');
   });
 
+  /**
+   * A tint per country, for separation only.
+   *
+   * Hues step by the golden angle so neighbours land far apart on the wheel,
+   * and saturation and lightness are pinned low and high: this is paper, not
+   * ink. Category is carried by the marker ring rather than a fill, so nothing
+   * here competes with the data.
+   */
+  function countryFill(i) {
+    return `hsl(${((i * 137.508) % 360).toFixed(1)} 34% 80%)`;
+  }
+  function countryStroke(i) {
+    return `hsl(${((i * 137.508) % 360).toFixed(1)} 28% 62%)`;
+  }
+
   const graticule = (() => {
     // Simple graticule: meridians every 30°, parallels every 30°.
     const lines = [];
@@ -250,8 +266,10 @@
         <path class="grat" d={path(g)} />
       {/each}
 
-      {#if land}
-        <path class="land" d={path(land)} />
+      {#if countries}
+        {#each countries.features as f, i (f.id ?? i)}
+          <path class="country" d={path(f)} fill={countryFill(i)} stroke={countryStroke(i)} />
+        {/each}
       {/if}
 
       <circle cx={size / 2} cy={size / 2} r={R} class="rim" />
@@ -351,7 +369,7 @@
   .glow { fill: none; stroke: #9cc9e0; stroke-opacity: 0.5; stroke-width: 7; }
   .rim { fill: none; stroke: rgba(25, 30, 59, 0.22); stroke-width: 1; }
   .grat { fill: none; stroke: #16324a; stroke-opacity: 0.13; stroke-width: 0.6; pointer-events: none; }
-  .land { fill: var(--globe-land); stroke: var(--globe-coast); stroke-width: 0.5; pointer-events: none; }
+  .country { stroke-width: 0.45; pointer-events: none; }
 
   .arc {
     fill: none;
@@ -362,19 +380,24 @@
     pointer-events: none;
   }
 
+  /* Category lives in the RING, not the fill: every country underneath is now
+     a different colour, so a coloured fill would be read against a different
+     backdrop each time. A near-white core keeps the marker legible on any
+     tint, and the ring is thick enough to carry the hue. */
   .dot {
-    fill: var(--big);
-    /* A light ring keeps the category hue separable from the terrain under it. */
-    /* Dark ring: the terrain is now light, so a light ring would vanish. This
-       is also the relief the amber dot needs, since on land and shallow ocean
-       it sits at 2.1-2.4:1 rather than 3. */
-    stroke: #16324a;
-    stroke-width: 1.6;
+    fill: #fffdf8;
+    stroke: var(--big);
+    stroke-width: 3.2;
     cursor: pointer;
   }
-  .dot.gem { fill: var(--gem); }
+  .dot.gem { stroke: var(--gem); }
   .dot.faded { opacity: 0.25; }
-  .dot.picked, .dot.hovered { stroke: #191e3b; stroke-width: 3; }
+  /* Selection thickens the ring and adds an ink halo, so it reads without
+     taking the category hue away. */
+  .dot.picked, .dot.hovered {
+    stroke-width: 4.4;
+    filter: drop-shadow(0 0 2.5px rgba(25, 30, 59, 0.95));
+  }
   .dot:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 2px; }
 
   .label {

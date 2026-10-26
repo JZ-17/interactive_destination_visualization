@@ -49,15 +49,27 @@ How 50 cities' official tourism sites describe themselves, and which cities soun
 
 ## Encoding rules
 
-- **Colour encodes city category and nothing else**, everywhere, in both
-  prototypes: big destination `#2a78d6` (blue), hidden gem `#eb6834` (orange).
-  Validated for CVD and contrast in light and dark mode.
-- Archetype (10 values) and theme (10 values) have too many levels for colour.
-  They get **position, grouping, or length** — never a 10-hue ramp.
-- Selection is a ring + label, never a new hue. Hover is opacity.
-- Legend present whenever two categories are on screen; direct-label where there
-  is room. Identity is never carried by colour alone.
-- Dark mode is defined explicitly, not an automatic flip.
+- **Colour encodes city category and nothing else**: big destination
+  `#1668e3` (Expedia blue), hidden gem `#c77a00` (amber). Validated for CVD
+  and contrast — run the dataviz skill's `validate_palette.js` before changing
+  either. Expedia's own yellow `#ffc94d` fails (1.49:1, lightness 0.863) and
+  must not be used for data.
+- **On the globe, category is the marker's RING, not its fill.** Every country
+  is tinted separately there, so a coloured fill would be read against a
+  different backdrop each time. Markers are a near-white core plus a 3.2px
+  category ring.
+- **Country tints are basemap separation, not an encoding.** Golden-angle hues
+  at fixed low saturation / high lightness, the way a political map gives
+  neighbours different colours. There is no legend for them and nothing in the
+  UI invites reading meaning into them. Never add one.
+- Archetype (8 values) and theme (10 values) have too many levels for colour.
+  They get **position, grouping, or text** — never an 8- or 10-hue ramp.
+- Selection thickens the ring and adds an ink halo, never a new hue. Hover is
+  opacity and scale.
+- Legend present whenever two categories are on screen; direct-label where
+  there is room. Identity is never carried by colour alone.
+- **Light only. There is no dark mode** — the palette is a light-mode brand
+  look and the tan page `#f7f1e8` is the point of it.
 
 ## Data constraints (from data/METHODOLOGY.md — read it before adding a measure)
 

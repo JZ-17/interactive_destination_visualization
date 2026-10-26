@@ -322,10 +322,18 @@ export async function loadCities(fetchImpl = fetch) {
   return { cities, themeStats, corpusThemeMean };
 }
 
-/** World land outline for the map view, as GeoJSON. */
-export async function loadLand(fetchImpl = fetch) {
-  const topo = await json(asset('land-110m.json'), { fetch: fetchImpl });
-  return feature(topo, topo.objects.land);
+/**
+ * Country polygons for the globe, as GeoJSON.
+ *
+ * Countries rather than one landmass so each can be tinted separately. Those
+ * tints are basemap separation — the way a political map gives neighbours
+ * different colours — not an encoding: there is no legend for them and nothing
+ * invites reading meaning into them. City category is carried by the marker
+ * ring instead. See CLAUDE.md.
+ */
+export async function loadCountries(fetchImpl = fetch) {
+  const topo = await json(asset('countries-110m.json'), { fetch: fetchImpl });
+  return feature(topo, topo.objects.countries);
 }
 
 // --- pairwise measures, for any two cities the user picks ----------------
