@@ -169,6 +169,7 @@
         {hoveredCity}
         {picks}
         cityColor={true}
+        columns={10}
         onhovercity={(c) => (hoveredCity = c)}
         onpickcity={pick}
       />
@@ -185,6 +186,7 @@
         b={cityB}
         {cities}
         cityColor={true}
+        columns={10}
         onclear={() => (picks = [])}
         onhovercity={(c) => (hoveredCity = c)}
       />
@@ -281,7 +283,7 @@
   }
 
   main {
-    max-width: 1180px;
+    max-width: 1460px;
     margin: 0 auto;
     padding: 28px 16px 60px;
     display: flex;

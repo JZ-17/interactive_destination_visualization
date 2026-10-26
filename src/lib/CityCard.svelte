@@ -128,6 +128,8 @@
   .card {
     box-sizing: border-box;
     text-align: left;
+    /* So the card can size its own type against its own width. */
+    container-type: inline-size;
     cursor: pointer;
     display: flex;
     flex-direction: column;
@@ -183,6 +185,19 @@
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--text-secondary);
+  }
+
+  /* Narrow default cards: drop to the essentials rather than wrapping into a
+     mess. The archetype stays; the personality is the first thing cut. */
+  @container (max-width: 150px) {
+    .card:not(.portrait):not(.dense) { padding: 9px 9px 8px; gap: 6px; }
+    .card:not(.portrait):not(.dense) h3 { font-size: 0.78rem; line-height: 1.15; }
+    .card:not(.portrait):not(.dense) .country { font-size: 0.58rem; }
+    .card:not(.portrait):not(.dense) .rank { font-size: 0.58rem; }
+    .card:not(.portrait):not(.dense) .value strong { font-size: 1.02rem; }
+    .card:not(.portrait):not(.dense) .unit { font-size: 0.53rem; }
+    .card:not(.portrait):not(.dense) .chip { font-size: 0.52rem; padding: 1px 5px; }
+    .card:not(.portrait):not(.dense) .chip.muted { display: none; }
   }
 
   /* Portrait: playing-card proportions, read top to bottom. The card sizes

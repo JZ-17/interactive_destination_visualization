@@ -28,6 +28,8 @@
     draggable = false,
     /** Tint each card with its city's own hue. */
     cityColor = false,
+    /** Force an exact number of columns instead of auto-filling. */
+    columns = null,
     onhovercity = () => {},
     onpickcity = () => {}
   } = $props();
@@ -46,7 +48,11 @@
   let max = $derived(Math.max(1e-9, ...cities.map((c) => measure.get(c))));
 </script>
 
-<div class="grid" role="list">
+<div
+  class="grid"
+  style={columns ? `grid-template-columns: repeat(${columns}, minmax(0, 1fr));` : undefined}
+  role="list"
+>
   {#each shown as r (r.city.city)}
     <div role="listitem">
       <CityCard
