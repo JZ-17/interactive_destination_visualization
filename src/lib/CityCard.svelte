@@ -164,12 +164,28 @@
     color: var(--text-secondary);
   }
 
-  /* Portrait: playing-card proportions, read top to bottom. */
+  /* Portrait: playing-card proportions, read top to bottom. The card sizes
+     its own type against its width, so the same component works as a small
+     deck card and as a larger one sitting in a drop slot. */
   .card.portrait {
     aspect-ratio: 5 / 7;
     gap: 0;
     padding: 10px 11px 9px;
     justify-content: space-between;
+    container-type: inline-size;
+  }
+
+  @container (max-width: 140px) {
+    .card.portrait { padding: 7px 8px 6px; }
+    .card.portrait .type { font-size: 0.5rem; letter-spacing: 0.05em; }
+    .card.portrait h3 { font-size: 0.78rem; }
+    .card.portrait .country { font-size: 0.58rem; }
+    .card.portrait .value strong { font-size: 1.02rem; }
+    .card.portrait .unit { font-size: 0.54rem; }
+    .card.portrait .rank { font-size: 0.58rem; }
+    /* No room for the personality at this size; the archetype is the headline. */
+    .card.portrait .chip { display: none; }
+    .pfoot { justify-content: flex-end; margin-top: 5px; }
   }
   .card.portrait .type {
     font-size: 0.57rem;
@@ -177,7 +193,10 @@
     letter-spacing: 0.08em;
   }
   .card.portrait .face { margin-top: 2px; }
-  .card.portrait h3 { font-size: 0.95rem; line-height: 1.15; }
+  .card.portrait h3 {
+    font-size: 0.95rem; line-height: 1.15;
+    overflow-wrap: anywhere;
+  }
   .card.portrait .country { font-size: 0.65rem; margin-top: 2px; }
   .card.portrait .value { margin-top: auto; align-items: baseline; }
   .card.portrait .value strong { font-size: 1.3rem; }

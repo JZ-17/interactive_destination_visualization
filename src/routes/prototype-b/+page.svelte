@@ -435,8 +435,8 @@
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 12px 6px 12px 12px;
-    /* Two playing-card columns in the rail. */
-    --card-min: 150px;
+    /* Three small playing cards to a row. */
+    --card-min: 100px;
   }
   .inv-head {
     display: flex; align-items: baseline; justify-content: space-between;
