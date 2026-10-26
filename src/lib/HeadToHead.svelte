@@ -26,6 +26,12 @@
      * its two empty drop slots already say what to do.
      */
     showEmptyState = true,
+    /**
+     * Colour each side by the city's own hue instead of its category. Worth
+     * it beyond matching the deck: two hidden gems otherwise draw two
+     * identical amber bars, told apart only by which side they sit on.
+     */
+    cityColor = false,
     onclear = () => {},
     onhovercity = () => {}
   } = $props();
@@ -77,7 +83,14 @@
     </div>
   {/if}
 {:else}
-  <div class="h2h" class:compact>
+  <div
+    class="h2h"
+    class:compact
+    class:city-color={cityColor}
+    style={cityColor
+      ? `--a-color: hsl(${a.hue} 58% 47%); --b-color: hsl(${b.hue} 58% 47%);`
+      : undefined}
+  >
     <header>
       <div class="card" class:gem={a.category === 'hidden'}
            onmouseenter={() => onhovercity(a.city)} onmouseleave={() => onhovercity(null)}
@@ -123,7 +136,7 @@
 
             <!-- left arm: city A, growing away from the centre -->
             <rect
-              class="bar" class:gem={a.category === 'hidden'}
+              class="bar side-a" class:gem={a.category === 'hidden'}
               x={LEFT_BASE - len(a.themes[t])}
               y={rowY}
               width={len(a.themes[t])}
@@ -133,7 +146,7 @@
 
             <!-- right arm: city B -->
             <rect
-              class="bar" class:gem={b.category === 'hidden'}
+              class="bar side-b" class:gem={b.category === 'hidden'}
               x={RIGHT_BASE}
               y={rowY}
               width={len(b.themes[t])}
@@ -234,6 +247,10 @@
   .card.gem { border-left-color: var(--gem); }
   .card.right { border-left: none; border-right: 3px solid var(--big); text-align: right; }
   .card.right.gem { border-right-color: var(--gem); }
+  .h2h.city-color header .card,
+  .h2h.city-color header .card.gem { border-left-color: var(--a-color); }
+  .h2h.city-color header .card.right,
+  .h2h.city-color header .card.right.gem { border-right-color: var(--b-color); }
   .card h2 { font-size: 1.25rem; margin-top: 2px; }
   .sub { font-size: 0.75rem; color: var(--text-secondary); margin-top: 1px; }
   .vs {
@@ -254,6 +271,12 @@
           text-transform: uppercase; letter-spacing: 0.05em; }
   .bar { fill: var(--big); }
   .bar.gem { fill: var(--gem); }
+  /* Repeat .gem so the city hue wins on specificity rather than source order
+     — the same trap that silently collapsed the deck to one gem colour. */
+  .h2h.city-color .bar.side-a,
+  .h2h.city-color .bar.side-a.gem { fill: var(--a-color); }
+  .h2h.city-color .bar.side-b,
+  .h2h.city-color .bar.side-b.gem { fill: var(--b-color); }
   .baseline { stroke: var(--axis); stroke-width: 1; }
   .flag { font-size: 9.5px; font-weight: 650; fill: var(--text-secondary);
           font-variant-numeric: tabular-nums; }

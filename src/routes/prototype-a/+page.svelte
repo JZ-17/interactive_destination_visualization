@@ -184,6 +184,7 @@
         a={cityA}
         b={cityB}
         {cities}
+        cityColor={true}
         onclear={() => (picks = [])}
         onhovercity={(c) => (hoveredCity = c)}
       />
