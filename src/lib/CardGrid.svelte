@@ -20,6 +20,10 @@
     picks = [],
     /** Lead each card with its archetype rather than the measure value. */
     typeFirst = false,
+    /** Compact horizontal rows, for a single-column list. */
+    dense = false,
+    /** Allow cards to be dragged into a comparison slot. */
+    draggable = false,
     onhovercity = () => {},
     onpickcity = () => {}
   } = $props();
@@ -48,6 +52,8 @@
         rank={r.rank}
         total={cities.length}
         {typeFirst}
+        {dense}
+        {draggable}
         picked={picks.includes(r.city.city)}
         hovered={hoveredCity === r.city.city}
         onhover={onhovercity}

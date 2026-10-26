@@ -27,7 +27,14 @@
   let error = $state(null);
 
   // --- shared selection state, one owner each ---------------------------
-  let picks = $state([]);            // SELECT, up to two
+  /**
+   * Two comparison slots. These are the source of truth for the selection:
+   * a city is either in the inventory or in a slot, never both, so picking
+   * one physically moves its card across.
+   */
+  let slots = $state([null, null]);
+  let picks = $derived(slots.filter(Boolean));
+  let dragOver = $state(null);       // slot index currently under a drag
   let onFace = $state(0);            // cities currently on the near hemisphere
   let hoveredCity = $state(null);    // LINK
   let highlightGroup = $state(null); // LINK (archetype)
@@ -44,11 +51,14 @@
   let shown = $derived(
     categoryFilter === 'all' ? cities : cities.filter((c) => c.category === categoryFilter)
   );
-  let shownNames = $derived(new Set(shown.map((c) => c.city)));
+  // A city held in a slot is out of the inventory — the card moved.
+  let shownNames = $derived(
+    new Set(shown.map((c) => c.city).filter((n) => !slots.includes(n)))
+  );
 
   let byName = $derived(new Map(cities.map((c) => [c.city, c])));
-  let cityA = $derived(picks[0] ? byName.get(picks[0]) : null);
-  let cityB = $derived(picks[1] ? byName.get(picks[1]) : null);
+  let cityA = $derived(slots[0] ? byName.get(slots[0]) : null);
+  let cityB = $derived(slots[1] ? byName.get(slots[1]) : null);
 
   // Highlight emphasises; it never removes.
   let highlightNames = $derived(
@@ -63,10 +73,37 @@
 
   let km = $derived(cityA && cityB ? greatCircleKm(cityA, cityB) : null);
 
+  /** Put a city in a specific slot, clearing it from the other one first. */
+  function place(name, i) {
+    const next = [...slots];
+    const held = next.indexOf(name);
+    if (held !== -1) next[held] = null;
+    next[i] = name;
+    slots = next;
+  }
+
+  /** Clicking: fill the first free slot, or push the older pick out. */
   function pick(name) {
-    if (picks.includes(name)) picks = picks.filter((p) => p !== name);
-    else if (picks.length < 2) picks = [...picks, name];
-    else picks = [picks[1], name]; // oldest falls off
+    if (slots.includes(name)) {
+      slots = slots.map((v) => (v === name ? null : v));
+      return;
+    }
+    const free = slots.indexOf(null);
+    if (free !== -1) place(name, free);
+    else slots = [slots[1], name];
+  }
+
+  function clearSlot(i) {
+    const next = [...slots];
+    next[i] = null;
+    slots = next;
+  }
+
+  function onDrop(e, i) {
+    e.preventDefault();
+    dragOver = null;
+    const name = e.dataTransfer.getData('text/plain');
+    if (byName.has(name)) place(name, i);
   }
 
   onMount(async () => {
@@ -91,14 +128,8 @@
     <!-- Screen one: the globe, and nothing competing with it. -->
     <section class="hero">
       <header class="hero-top">
-        <div>
-          <p class="eyebrow">Prototype B · globe-led comparison</p>
-          <h1>Pick two cities anywhere on Earth. Do they sound alike?</h1>
-        </div>
-        <nav>
-          <a href="../">Overview</a>
-          <a href="../prototype-a/">← Prototype A</a>
-        </nav>
+        <p class="eyebrow">Prototype B · globe-led comparison</p>
+        <h1>Pick two cities anywhere on Earth. Do they sound alike?</h1>
       </header>
 
       <div class="hero-body">
@@ -122,7 +153,7 @@
         <aside class="inventory">
           <header class="inv-head">
             <h2>All cities</h2>
-            <span class="count">{shown.length} of {cities.length}</span>
+            <span class="count">{shownNames.size} of {cities.length}</span>
           </header>
 
           <div class="inv-list">
@@ -134,6 +165,8 @@
               {hoveredCity}
               {picks}
               typeFirst={true}
+              dense={true}
+              draggable={true}
               onhovercity={(c) => (hoveredCity = c)}
               onpickcity={pick}
             />
@@ -178,6 +211,51 @@
               </select>
             </label>
           </div>
+
+          <!-- Two slots you can drag a card into. A city is either in the
+               inventory or in a slot, so selecting one visibly moves it. -->
+          <div class="slots">
+            {#each [0, 1] as i}
+              {@const held = slots[i] ? byName.get(slots[i]) : null}
+              <div
+                class="slot"
+                class:filled={!!held}
+                class:over={dragOver === i}
+                role="button"
+                tabindex="0"
+                aria-label={held ? `Slot ${i + 1}: ${held.city}. Press to remove.` : `Empty slot ${i + 1}. Drop a city here.`}
+                ondragover={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; dragOver = i; }}
+                ondragleave={() => (dragOver === i ? (dragOver = null) : null)}
+                ondrop={(e) => onDrop(e, i)}
+                onclick={() => held && clearSlot(i)}
+                onkeydown={(e) => {
+                  if (held && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); clearSlot(i); }
+                }}
+              >
+                {#if held}
+                  <span class="slot-rank" class:gem={held.category === 'hidden'}></span>
+                  <span class="slot-name">{held.city}</span>
+                  <span class="slot-sub">{held.country}</span>
+                  <span class="slot-x" aria-hidden="true">×</span>
+                {:else}
+                  <span class="slot-empty">Drop a city here</span>
+                {/if}
+              </div>
+            {/each}
+          </div>
+
+          <!-- The pair comparison lives under the deck, so picking two cities
+               and reading the result never leaves this screen. -->
+          <div class="inv-compare">
+            <HeadToHead
+              a={cityA}
+              b={cityB}
+              {cities}
+              compact={true}
+              onclear={() => (slots = [null, null])}
+              onhovercity={(c) => (hoveredCity = c)}
+            />
+          </div>
         </aside>
       </div>
 
@@ -202,7 +280,7 @@
           {:else}
             <span class="note">Pick one more.</span>
           {/if}
-          <button onclick={() => (picks = [])}>Clear</button>
+          <button onclick={() => (slots = [null, null])}>Clear</button>
         {/if}
       </div>
 
@@ -216,16 +294,6 @@
 
     <!-- Screen two: everything that is about the whole corpus. -->
     <section class="trends">
-    <section class="panel">
-      <HeadToHead
-        a={cityA}
-        b={cityB}
-        {cities}
-        onclear={() => (picks = [])}
-        onhovercity={(c) => (hoveredCity = c)}
-      />
-    </section>
-
     <section class="panel">
       <ThemeScatter
         {cities}
@@ -299,7 +367,7 @@
     flex: none;
     /* Leave room for the floating inventory on the right (340px + gutters)
        on both sides, so the sphere stays centred and never runs under it. */
-    width: min(calc(100% - 720px), calc(100dvh - 240px));
+    width: min(calc(100% - 848px), calc(100dvh - 240px));
     height: auto;
     aspect-ratio: 1;
   }
@@ -309,7 +377,7 @@
     top: 62px;
     right: 20px;
     bottom: 104px;
-    width: 340px;
+    width: 404px;
     z-index: 3;
     min-height: 0;
     display: flex;
@@ -319,7 +387,8 @@
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 12px 6px 12px 12px;
-    --card-min: 148px;
+    /* 100% forces one card per row: a vertical list, not a grid. */
+    --card-min: 100%;
   }
   .inv-head {
     display: flex; align-items: baseline; justify-content: space-between;
@@ -331,12 +400,63 @@
   /* Its own scroller, so running out of cards hands the scroll back to the
      page and the snap still works. */
   .inv-list {
-    flex: 1 1 auto;
+    flex: 1 1 52%;
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
     padding: 2px 6px 2px 2px;
   }
+
+  .slots {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 10px 8px 0 0;
+    border-top: 1px solid var(--border);
+  }
+  .slot {
+    display: flex; align-items: center; gap: 6px;
+    min-height: 44px;
+    padding: 6px 8px;
+    border: 1px dashed var(--axis);
+    border-radius: var(--radius);
+    font-size: 0.78rem;
+    cursor: default;
+    transition: border-color 120ms, background-color 120ms;
+  }
+  .slot.filled {
+    border-style: solid;
+    border-color: var(--border);
+    background: var(--surface-1);
+    cursor: pointer;
+  }
+  .slot.over {
+    border-color: var(--text-primary);
+    background: var(--wash);
+    border-style: solid;
+  }
+  .slot-rank {
+    width: 4px; align-self: stretch; border-radius: 2px;
+    background: var(--big); flex: none;
+  }
+  .slot-rank.gem { background: var(--gem); }
+  .slot-name { font-weight: 650; }
+  .slot-sub { color: var(--text-muted); font-size: 0.68rem; min-width: 0;
+              overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .slot-x { margin-left: auto; color: var(--text-muted); }
+  .slot:hover .slot-x { color: var(--text-primary); }
+  .slot-empty { color: var(--text-muted); font-size: 0.72rem; }
+
+  /* Its own scroller too, so a long comparison never pushes the deck off. */
+  .inv-compare {
+    flex: 1 1 48%;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 8px 8px 2px 0;
+  }
+  .inv-compare::-webkit-scrollbar { width: 8px; }
+  .inv-compare::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
   .inv-list::-webkit-scrollbar { width: 8px; }
   .inv-list::-webkit-scrollbar-thumb {
     background: var(--border); border-radius: 4px;
@@ -362,14 +482,9 @@
     top: 0; left: 0; right: 0;
     z-index: 2;
     padding: 16px 20px;
-    max-width: 1100px;
-    margin: 0 auto;
-    display: flex; justify-content: space-between; align-items: flex-start; gap: 24px;
     pointer-events: none;
   }
-  .hero-top a, .hero-top nav { pointer-events: auto; }
   .hero-top h1 { margin-top: 4px; font-size: 1.3rem; }
-  nav { display: flex; gap: 14px; font-size: 0.78rem; white-space: nowrap; }
 
   .field { display: flex; flex-direction: column; gap: 4px; }
   .segmented { display: flex; gap: 4px; }
@@ -457,7 +572,6 @@
   @media (max-width: 880px) {
     /* Narrow screens wrap the bar, so let it grow again. */
     .selected-bar { height: auto; min-height: 42px; }
-    .hero-top { flex-direction: column; gap: 8px; }
     .hero-top h1 { font-size: 1.1rem; }
   }
 

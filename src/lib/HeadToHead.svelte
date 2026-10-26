@@ -19,19 +19,23 @@
     a = null,
     b = null,
     cities = [],
+    /** Narrow geometry, for the column beside the globe. */
+    compact = false,
     onclear = () => {},
     onhovercity = () => {}
   } = $props();
 
   // Drawn near its real display size: an SVG much smaller than its container
-  // gets upscaled, and the 10px type scales with it.
-  const ROW = 27;
-  const LABEL_W = 150;
-  const ARM = 258;
-  const GUTTER = 14;
-  const width = LABEL_W + ARM * 2 + GUTTER * 2;
-  const LEFT_BASE = ARM + GUTTER;              // zero baseline for city A
-  const RIGHT_BASE = ARM + GUTTER + LABEL_W;   // zero baseline for city B
+  // gets upscaled, and the 10px type scales with it. The compact geometry
+  // exists for the same reason in reverse — at full width the chart would be
+  // squeezed into ~370px and every label would shrink with it.
+  let ROW = $derived(compact ? 21 : 27);
+  let LABEL_W = $derived(compact ? 100 : 150);
+  let ARM = $derived(compact ? 108 : 258);
+  let GUTTER = $derived(compact ? 10 : 14);
+  let width = $derived(LABEL_W + ARM * 2 + GUTTER * 2);
+  let LEFT_BASE = $derived(ARM + GUTTER);             // zero baseline for city A
+  let RIGHT_BASE = $derived(ARM + GUTTER + LABEL_W);  // zero baseline for city B
   let height = $derived(THEMES.length * ROW + 36);
 
   // One fixed length scale across every pairing, so a bar of a given length
@@ -66,7 +70,7 @@
     {/if}
   </div>
 {:else}
-  <div class="h2h">
+  <div class="h2h" class:compact>
     <header>
       <div class="card" class:gem={a.category === 'hidden'}
            onmouseenter={() => onhovercity(a.city)} onmouseleave={() => onhovercity(null)}
@@ -130,13 +134,28 @@
               rx="2"
             ><title>{b.city} · {t}: {fmt(b.themes[t])} per 1,000 words</title></rect>
 
+            <!-- A near-full-length bar leaves no room outside it for the
+                 value, so the label flips inside rather than running off the
+                 edge of the chart. -->
             {#if a.dominantTheme === t}
-              <text class="flag" x={LEFT_BASE - len(a.themes[t]) - 6} y={midY}
-                    text-anchor="end" dominant-baseline="middle">{fmt(a.themes[t], 1)}</text>
+              {@const outside = LEFT_BASE - len(a.themes[t]) - 6}
+              <text
+                class="flag" class:inside={outside < 26}
+                x={outside < 26 ? LEFT_BASE - len(a.themes[t]) + 6 : outside}
+                y={midY}
+                text-anchor={outside < 26 ? 'start' : 'end'}
+                dominant-baseline="middle"
+              >{fmt(a.themes[t], 1)}</text>
             {/if}
             {#if b.dominantTheme === t}
-              <text class="flag" x={RIGHT_BASE + len(b.themes[t]) + 6} y={midY}
-                    text-anchor="start" dominant-baseline="middle">{fmt(b.themes[t], 1)}</text>
+              {@const outside = RIGHT_BASE + len(b.themes[t]) + 6}
+              <text
+                class="flag" class:inside={outside > width - 26}
+                x={outside > width - 26 ? RIGHT_BASE + len(b.themes[t]) - 6 : outside}
+                y={midY}
+                text-anchor={outside > width - 26 ? 'end' : 'start'}
+                dominant-baseline="middle"
+              >{fmt(b.themes[t], 1)}</text>
             {/if}
           </g>
         {/each}
@@ -231,8 +250,15 @@
   .baseline { stroke: var(--axis); stroke-width: 1; }
   .flag { font-size: 9.5px; font-weight: 650; fill: var(--text-secondary);
           font-variant-numeric: tabular-nums; }
+  /* Sitting on the bar, so it needs to read against the category colour. */
+  .flag.inside { fill: #fffdf8; }
 
   .two-up { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  /* In the narrow column there is no room for two; stack them. */
+  .h2h.compact .two-up { grid-template-columns: 1fr; gap: 14px; }
+  .h2h.compact header .card h2 { font-size: 1rem; }
+  .h2h.compact .sub { font-size: 0.68rem; }
+  .h2h.compact { gap: 12px; }
   dl.voice { margin: 0; font-size: 0.78rem; }
   dl.voice dt { color: var(--text-muted); font-size: 0.7rem; margin-top: 8px; }
   dl.voice dt:first-child { margin-top: 0; }

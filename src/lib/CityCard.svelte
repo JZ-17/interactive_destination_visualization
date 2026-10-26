@@ -19,6 +19,10 @@
     dimmed = false,
     /** Lead with the city's archetype rather than its measure value. */
     typeFirst = false,
+    /** Compact horizontal row, for a single-column list. */
+    dense = false,
+    /** Allow the card to be dragged into a comparison slot. */
+    draggable = false,
     onhover = () => {},
     onpick = () => {}
   } = $props();
@@ -29,20 +33,48 @@
   let decimals = $derived(max <= 1.5 ? 2 : 1);
 </script>
 
-<button
+<!-- A div rather than a <button>: Chrome will not start a native drag from a
+     form control, so draggable="true" on a button fires no dragstart at all.
+     role/tabindex/keydown restore the button behaviour. -->
+<div
+  {draggable}
+  ondragstart={(e) => {
+    e.dataTransfer.setData('text/plain', city.city);
+    e.dataTransfer.effectAllowed = 'move';
+  }}
   class="card"
+  class:dense
+  class:draggable
   class:gem={city.category === 'hidden'}
   class:picked
   class:hovered
   class:dimmed
+  role="button"
+  tabindex="0"
   aria-pressed={picked}
   aria-label="{city.city}, {city.country}. {measure.label} {value.toFixed(decimals)}, rank {rank} of {total}."
   onclick={() => onpick(city.city)}
+  onkeydown={(e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onpick(city.city); }
+  }}
   onmouseenter={() => onhover(city.city)}
   onmouseleave={() => onhover(null)}
   onfocus={() => onhover(city.city)}
   onblur={() => onhover(null)}
 >
+{#if dense}
+  <div class="row">
+    <div class="ident">
+      <p class="type">{city.archetype}</p>
+      <h3>{city.city}<span class="country">{city.country}</span></h3>
+    </div>
+    <div class="metric">
+      <strong>{value.toFixed(decimals)}</strong>
+      <span class="rank">#{rank}</span>
+    </div>
+  </div>
+  <div class="track"><div class="fill" style="width:{pct}%"></div></div>
+{:else}
   {#if typeFirst}
     <p class="type">{city.archetype}</p>
   {/if}
@@ -65,13 +97,13 @@
     {#if !typeFirst}<span class="chip">{city.archetype}</span>{/if}
     <span class="chip muted">{city.personality}</span>
   </footer>
-</button>
+{/if}
+</div>
 
 <style>
   .card {
-    /* Reset the button chrome — this is a card, not a control strip. */
-    all: unset;
     box-sizing: border-box;
+    text-align: left;
     cursor: pointer;
     display: flex;
     flex-direction: column;
@@ -113,6 +145,25 @@
     text-transform: uppercase;
     color: var(--text-secondary);
   }
+
+  /* Dense: one line of identity, one number, one bar. Built to stack. */
+  .card.draggable { cursor: grab; }
+  .card.draggable:active { cursor: grabbing; }
+  .card.dense { gap: 5px; padding: 8px 10px 7px; }
+  .card.dense:hover, .card.dense.hovered { transform: scale(1.02); }
+  .card.dense.picked:hover, .card.dense.picked.hovered { transform: scale(1.03); }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .ident { min-width: 0; }
+  .card.dense h3 {
+    font-size: 0.86rem; display: flex; align-items: baseline; gap: 6px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .card.dense .country { margin-top: 0; font-size: 0.66rem; }
+  .metric { display: flex; align-items: baseline; gap: 7px; white-space: nowrap; }
+  .metric strong {
+    font-size: 1.02rem; font-weight: 650; font-variant-numeric: tabular-nums;
+  }
+  .card.dense .track { height: 4px; }
 
   header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
   h3 { font-size: 0.92rem; line-height: 1.2; }
