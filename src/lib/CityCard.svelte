@@ -21,6 +21,8 @@
     typeFirst = false,
     /** Compact horizontal row, for a single-column list. */
     dense = false,
+    /** Portrait, playing-card proportions. */
+    portrait = false,
     /** Allow the card to be dragged into a comparison slot. */
     draggable = false,
     onhover = () => {},
@@ -44,6 +46,7 @@
   }}
   class="card"
   class:dense
+  class:portrait
   class:draggable
   class:gem={city.category === 'hidden'}
   class:picked
@@ -62,7 +65,22 @@
   onfocus={() => onhover(city.city)}
   onblur={() => onhover(null)}
 >
-{#if dense}
+{#if portrait}
+  <p class="type">{city.archetype}</p>
+  <div class="face">
+    <h3>{city.city}</h3>
+    <p class="country">{city.country}</p>
+  </div>
+  <div class="value">
+    <strong>{value.toFixed(decimals)}</strong>
+    <span class="unit">{measure.label}</span>
+  </div>
+  <div class="track"><div class="fill" style="width:{pct}%"></div></div>
+  <footer class="pfoot">
+    <span class="chip muted">{city.personality}</span>
+    <span class="rank">#{rank}</span>
+  </footer>
+{:else if dense}
   <div class="row">
     <div class="ident">
       <p class="type">{city.archetype}</p>
@@ -144,6 +162,34 @@
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--text-secondary);
+  }
+
+  /* Portrait: playing-card proportions, read top to bottom. */
+  .card.portrait {
+    aspect-ratio: 5 / 7;
+    gap: 0;
+    padding: 10px 11px 9px;
+    justify-content: space-between;
+  }
+  .card.portrait .type {
+    font-size: 0.57rem;
+    line-height: 1.25;
+    letter-spacing: 0.08em;
+  }
+  .card.portrait .face { margin-top: 2px; }
+  .card.portrait h3 { font-size: 0.95rem; line-height: 1.15; }
+  .card.portrait .country { font-size: 0.65rem; margin-top: 2px; }
+  .card.portrait .value { margin-top: auto; align-items: baseline; }
+  .card.portrait .value strong { font-size: 1.3rem; }
+  .card.portrait .unit { font-size: 0.6rem; }
+  .card.portrait .track { margin-top: 5px; }
+  .pfoot {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 6px; margin-top: 7px;
+  }
+  .card.portrait .chip {
+    font-size: 0.58rem; padding: 2px 5px;
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
 
   /* Dense: one line of identity, one number, one bar. Built to stack. */

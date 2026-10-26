@@ -22,6 +22,8 @@
     typeFirst = false,
     /** Compact horizontal rows, for a single-column list. */
     dense = false,
+    /** Portrait, playing-card proportions. */
+    portrait = false,
     /** Allow cards to be dragged into a comparison slot. */
     draggable = false,
     onhovercity = () => {},
@@ -53,6 +55,7 @@
         total={cities.length}
         {typeFirst}
         {dense}
+        {portrait}
         {draggable}
         picked={picks.includes(r.city.city)}
         hovered={hoveredCity === r.city.city}

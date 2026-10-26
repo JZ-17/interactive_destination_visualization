@@ -18,6 +18,7 @@
   import { loadCities, loadCountries, greatCircleKm, AXIS_OPTIONS, axisById } from '$lib/data.js';
   import Globe from '$lib/Globe.svelte';
   import CardGrid from '$lib/CardGrid.svelte';
+  import CityCard from '$lib/CityCard.svelte';
   import ThemeScatter from '$lib/ThemeScatter.svelte';
   import HeadToHead from '$lib/HeadToHead.svelte';
   import Legend from '$lib/Legend.svelte';
@@ -66,6 +67,14 @@
       ? new Set(shown.filter((c) => c.archetype === highlightGroup).map((c) => c.city))
       : null
   );
+
+  // The slots render the real card, so they need the same scale and rank the
+  // deck uses — ranks over all 50, so a card keeps its standing in the slot.
+  let maxMeasure = $derived(Math.max(1e-9, ...cities.map((c) => measure.get(c))));
+  let rankOf = $derived.by(() => {
+    const sorted = [...cities].sort((x, y) => measure.get(y) - measure.get(x));
+    return new Map(sorted.map((c, i) => [c.city, i + 1]));
+  });
 
   let archetypes = $derived(
     [...new Set(cities.map((c) => c.archetype))].sort((a, b) => a.localeCompare(b))
@@ -133,7 +142,7 @@
       </header>
 
       <div class="hero-body">
-        <div class="globe-slot">
+        <div class="globe-slot" class:with-result={cityA && cityB}>
           <Globe
             cities={shown}
             {countries}
@@ -166,7 +175,7 @@
               {hoveredCity}
               {picks}
               typeFirst={true}
-              dense={true}
+              portrait={true}
               draggable={true}
               onhovercity={(c) => (hoveredCity = c)}
               onpickcity={pick}
@@ -240,10 +249,18 @@
               }}
             >
               {#if held}
-                <span class="slot-rank" class:gem={held.category === 'hidden'}></span>
-                <span class="slot-name">{held.city}</span>
-                <span class="slot-sub">{held.country}</span>
-                <span class="slot-x" aria-hidden="true">×</span>
+                <CityCard
+                  city={held}
+                  {measure}
+                  max={maxMeasure}
+                  rank={rankOf.get(held.city)}
+                  total={cities.length}
+                  portrait={true}
+                  picked={true}
+                  hovered={hoveredCity === held.city}
+                  onhover={(c) => (hoveredCity = c)}
+                  onpick={() => clearSlot(i)}
+                />
               {:else}
                 <span class="slot-empty">Drop a city here</span>
               {/if}
@@ -366,23 +383,33 @@
     inset: 0;
     padding: 62px 20px 104px;
   }
+  /* The globe owns whatever is left between the rail and the result panel,
+     and centres in it. With no pair chosen there is no right panel, so it
+     spreads out — capped at two thirds of the viewport. */
   .globe-slot {
     position: absolute;
-    inset: 62px 20px 104px;
+    top: 62px;
+    bottom: 104px;
+    left: 420px;
+    right: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: right 180ms ease-out;
   }
+  .globe-slot.with-result { right: 420px; }
   .globe-slot :global(figure) { height: 100%; width: 100%; justify-content: center; }
   /* Size the sphere from one dimension and let aspect-ratio supply the other.
      Letting flex resolve both left it square only by accident. */
+  /* Driven by the slot's real height rather than a guess at the page chrome,
+     so the sphere uses every pixel the layout actually leaves it. Width then
+     follows from aspect-ratio, capped at two thirds of the viewport. */
   .globe-slot :global(.stage) {
     flex: none;
-    /* Leave room for the floating inventory on the right (340px + gutters)
-       on both sides, so the sphere stays centred and never runs under it. */
-    width: min(calc(100% - 840px), calc(100dvh - 240px));
-    height: auto;
+    height: 100%;
+    width: auto;
     aspect-ratio: 1;
+    max-width: min(100%, 66vw);
   }
 
   /* Both panels stack in one left rail: deck on top, drop slots and the
@@ -408,8 +435,8 @@
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 12px 6px 12px 12px;
-    /* 100% forces one card per row: a vertical list, not a grid. */
-    --card-min: 100%;
+    /* Two playing-card columns in the rail. */
+    --card-min: 150px;
   }
   .inv-head {
     display: flex; align-items: baseline; justify-content: space-between;
@@ -441,45 +468,50 @@
     padding: 12px 6px 12px 12px;
   }
 
-  /* Two card-shaped spots, stacked — the same footprint as a deck card, so a
-     dragged card visibly lands in a slot its own size. */
+  /* Two portrait spots side by side — the same proportions as a deck card, so
+     a dragged card lands in a slot shaped like itself. */
   .slots {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
     padding: 0 8px 0 0;
     flex: none;
   }
   .slot {
-    display: flex; align-items: center; gap: 7px;
-    min-height: 55px;
-    padding: 8px 10px;
+    display: flex; flex-direction: column; justify-content: center;
+    align-items: flex-start; gap: 3px;
+    aspect-ratio: 5 / 7;
+    padding: 10px 11px;
     border: 1px dashed var(--axis);
     border-radius: var(--radius);
     font-size: 0.82rem;
     cursor: default;
     transition: border-color 120ms, background-color 120ms;
   }
+  /* A filled slot is simply the card itself — the dashed frame belongs to the
+     empty state. */
   .slot.filled {
-    border-style: solid;
-    border-color: var(--border);
-    background: var(--surface-1);
-    cursor: pointer;
+    border: none;
+    padding: 0;
+    background: none;
+    display: block;
   }
+  .slot.filled > :global(.card) { height: 100%; }
   .slot.over {
     border-color: var(--text-primary);
     background: var(--wash);
     border-style: solid;
   }
   .slot-rank {
-    width: 4px; align-self: stretch; border-radius: 2px;
-    background: var(--big); flex: none;
+    height: 4px; width: 34px; border-radius: 2px;
+    background: var(--big); flex: none; margin-bottom: 4px;
   }
   .slot-rank.gem { background: var(--gem); }
   .slot-name { font-weight: 650; }
-  .slot-sub { color: var(--text-muted); font-size: 0.68rem; min-width: 0;
+  .slot-sub { color: var(--text-muted); font-size: 0.68rem; max-width: 100%;
               overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .slot-x { margin-left: auto; color: var(--text-muted); }
+  .slot-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .slot { position: relative; }
   .slot:hover .slot-x { color: var(--text-primary); }
   .slot-empty { color: var(--text-muted); font-size: 0.75rem; }
 

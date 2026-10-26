@@ -207,7 +207,19 @@
     // the far side.
     const longest = runs.reduce((a, b) => (b.length > a.length ? b : a));
     const m = longest[Math.floor(longest.length / 2)];
-    const label = { x: m[0] + nx * 15, y: m[1] + ny * 15 };
+
+    // The offset is outward from the globe's centre, which near the rim pushes
+    // the text off the edge of the drawing. Flip it inward when that happens,
+    // then clamp, so the distance is never cut off.
+    const PAD = 30;
+    const inBounds = (q) =>
+      q.x > PAD && q.x < size - PAD && q.y > PAD && q.y < size - PAD;
+    let label = { x: m[0] + nx * 15, y: m[1] + ny * 15 };
+    if (!inBounds(label)) label = { x: m[0] - nx * 15, y: m[1] - ny * 15 };
+    label = {
+      x: Math.min(size - PAD, Math.max(PAD, label.x)),
+      y: Math.min(size - PAD, Math.max(PAD, label.y))
+    };
 
     return { d, label };
   });
