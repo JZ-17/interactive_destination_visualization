@@ -54,6 +54,11 @@ How 50 cities' official tourism sites describe themselves, and which cities soun
   and contrast — run the dataviz skill's `validate_palette.js` before changing
   either. Expedia's own yellow `#ffc94d` fails (1.49:1, lightness 0.863) and
   must not be used for data.
+- **On the globe a marker is its city's hue, ringed white for a big
+  destination and near-black for a hidden gem**, each with an
+  opposite-toned halo so the ring reads on dark ocean and pale desert alike.
+  Luminance is the one channel that survives any terrain underneath and any
+  colour blindness, which is why category sits there rather than in a hue.
 - **On the globe, category is the marker's RING, not its fill.** Every country
   is tinted separately there, so a coloured fill would be read against a
   different backdrop each time. Markers are a near-white core plus a 3.2px

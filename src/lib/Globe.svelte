@@ -245,10 +245,10 @@
    * here competes with the data.
    */
   function countryFill(i) {
-    return `hsl(${((i * 137.508) % 360).toFixed(1)} 34% 80%)`;
+    return `hsl(${((i * 137.508) % 360).toFixed(1)} 20% 22%)`;
   }
   function countryStroke(i) {
-    return `hsl(${((i * 137.508) % 360).toFixed(1)} 28% 62%)`;
+    return `hsl(${((i * 137.508) % 360).toFixed(1)} 22% 34%)`;
   }
 
   const graticule = (() => {
@@ -295,7 +295,8 @@
         </radialGradient>
       </defs>
 
-      <circle cx={size / 2} cy={size / 2} r={R + 3} class="glow" />
+      <circle cx={size / 2} cy={size / 2} r={R + 5} class="glow" />
+      <circle cx={size / 2} cy={size / 2} r={R + 1} class="glow-inner" />
       <circle cx={size / 2} cy={size / 2} r={R} class="ocean" fill="url(#globeShade)" />
 
       {#each graticule as g}
@@ -318,6 +319,7 @@
         {@const p = projection([c.lon, c.lat])}
         {#if p}
           <circle
+            style={c.hue !== undefined ? `--dot-city: hsl(${c.hue} 70% 58%);` : undefined}
             cx={p[0]} cy={p[1]}
             r={picks.includes(c.city) ? 7.5 : 5}
             class="dot"
@@ -401,57 +403,62 @@
     touch-action: pan-y;
     /* Scenery colours — deliberately low-chroma so the category hues on the
        city markers stay the most saturated thing on screen. */
-    /* A bright globe, not a dark one: the category dots are dark and
-       saturated, so light terrain is what actually separates them. Against a
-       deep ocean the blue dot measured 1.07-1.39:1; against this it clears 3:1. */
-    --ocean-hi: #cbe7f5;
-    --ocean-lo: #7fb6d6;
-    --globe-land: #cfe0ab;
-    --globe-coast: #a6bd80;
+    /* A lit planet seen from orbit. The markers now carry their own bright
+       city hue, so they no longer need light terrain to sit against — which
+       frees the globe to be dark, and lets a white or black ring read as
+       category by luminance alone. */
+    --ocean-hi: #1d4a6b;
+    --ocean-lo: #060f1c;
   }
   svg.dragging { cursor: ew-resize; }
 
   .ocean { stroke: none; }
-  .glow { fill: none; stroke: #9cc9e0; stroke-opacity: 0.5; stroke-width: 7; }
-  .rim { fill: none; stroke: rgba(25, 30, 59, 0.22); stroke-width: 1; }
-  .grat { fill: none; stroke: #16324a; stroke-opacity: 0.13; stroke-width: 0.6; pointer-events: none; }
+  /* Atmosphere: a lit limb rather than a flat outline. */
+  .glow { fill: none; stroke: #7fc4ff; stroke-opacity: 0.45; stroke-width: 9; }
+  .glow-inner { fill: none; stroke: #bfe4ff; stroke-opacity: 0.3; stroke-width: 2.5; }
+  .rim { fill: none; stroke: rgba(150, 200, 255, 0.3); stroke-width: 1; }
+  .grat { fill: none; stroke: #9fd0ff; stroke-opacity: 0.12; stroke-width: 0.6; pointer-events: none; }
   .country { stroke-width: 0.45; pointer-events: none; }
 
   .arc {
     fill: none;
-    stroke: #16324a;
-    stroke-width: 2.5;
-    stroke-opacity: 0.8;
+    stroke: #cfe9ff;
+    stroke-width: 2.2;
+    stroke-opacity: 0.95;
     stroke-linecap: round;
     pointer-events: none;
   }
 
-  /* Category lives in the RING, not the fill: every country underneath is now
-     a different colour, so a coloured fill would be read against a different
-     backdrop each time. A near-white core keeps the marker legible on any
-     tint, and the ring is thick enough to carry the hue. */
+  /* The fill is the city's own hue — the same colour its card carries — and
+     the ring is the category, as plain white or near-black. Luminance is the
+     one channel that survives any terrain underneath and any colour blindness,
+     and the opposite-toned halo means each ring reads on dark ocean and pale
+     desert alike. */
   .dot {
-    fill: #fffdf8;
-    stroke: var(--big);
-    stroke-width: 3.2;
+    fill: var(--dot-city, var(--big));
+    stroke: #ffffff;
+    stroke-width: 2.6;
     cursor: pointer;
+    filter: drop-shadow(0 0 1.6px rgba(0, 0, 0, 0.95));
   }
-  .dot.gem { stroke: var(--gem); }
+  .dot.gem {
+    stroke: #0a111c;
+    filter: drop-shadow(0 0 1.6px rgba(255, 255, 255, 0.95));
+  }
   .dot.faded { opacity: 0.25; }
   /* Selection thickens the ring and adds an ink halo, so it reads without
      taking the category hue away. */
-  .dot.picked, .dot.hovered {
-    stroke-width: 4.4;
-    filter: drop-shadow(0 0 2.5px rgba(25, 30, 59, 0.95));
-  }
+  .dot.picked, .dot.hovered { stroke-width: 4.2; }
+  .dot.picked { filter: drop-shadow(0 0 6px rgba(140, 200, 255, 0.95)); }
+  .dot.gem.picked { filter: drop-shadow(0 0 6px rgba(255, 205, 130, 0.95)); }
   .dot:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 2px; }
 
   .arclabel {
     font-size: 12.5px;
     font-weight: 700;
-    fill: #16324a;
+    fill: #eaf4ff;
     paint-order: stroke;
-    stroke: rgba(255, 253, 247, 0.95);
+    stroke: rgba(4, 10, 20, 0.92);
     stroke-width: 5;
     stroke-linejoin: round;
     pointer-events: none;
@@ -461,9 +468,9 @@
   .label {
     font-size: 13px;
     font-weight: 650;
-    fill: #16324a;
+    fill: #eaf4ff;
     paint-order: stroke;
-    stroke: rgba(255, 253, 247, 0.92);
+    stroke: rgba(4, 10, 20, 0.9);
     stroke-width: 3.5;
     pointer-events: none;
   }
