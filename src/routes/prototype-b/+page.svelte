@@ -251,21 +251,25 @@
           {/each}
         </div>
 
-        <!-- The pair comparison lives under the deck, so picking two cities
-             and reading the result never leaves this screen. -->
-        <div class="inv-compare">
-          <HeadToHead
-            a={cityA}
-            b={cityB}
-            {cities}
-            compact={true}
-            showEmptyState={false}
-            onclear={() => (slots = [null, null])}
-            onhovercity={(c) => (hoveredCity = c)}
-          />
-        </div>
         </aside>
         </div>
+
+        <!-- The result appears on the right once both spots are filled. The
+             globe reserves this width whether or not it is showing, so it
+             never jumps when a pair completes. -->
+        {#if cityA && cityB}
+          <aside class="result">
+            <HeadToHead
+              a={cityA}
+              b={cityB}
+              {cities}
+              compact={true}
+              showEmptyState={false}
+              onclear={() => (slots = [null, null])}
+              onhovercity={(c) => (hoveredCity = c)}
+            />
+          </aside>
+        {/if}
       </div>
 
       <div class="hero-stack">
@@ -395,7 +399,7 @@
     gap: 10px;
   }
   .inventory {
-    flex: 1 1 54%;
+    flex: 1 1 auto;
     min-height: 0;
     display: flex;
     flex-direction: column;
@@ -424,10 +428,10 @@
     padding: 2px 6px 2px 2px;
   }
 
-  /* The tray cards get dropped into, at the foot of the rail. */
+  /* The tray cards get dropped into, at the foot of the rail. Sized to its
+     two spots now that the result has moved to the right. */
   .comparator {
-    flex: 1 1 46%;
-    min-height: 0;
+    flex: none;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -480,16 +484,22 @@
   .slot-empty { color: var(--text-muted); font-size: 0.75rem; }
 
   /* Its own scroller too, so a long comparison never pushes the deck off. */
-  .inv-compare {
-    flex: 1 1 auto;
-    min-height: 0;
+  .result {
+    position: absolute;
+    top: 62px;
+    right: 20px;
+    bottom: 104px;
+    width: 380px;
+    z-index: 3;
     overflow-y: auto;
     overscroll-behavior: contain;
-    border-top: 1px solid var(--border);
-    padding: 10px 8px 2px 0;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 6px 12px 12px;
   }
-  .inv-compare::-webkit-scrollbar { width: 8px; }
-  .inv-compare::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .result::-webkit-scrollbar { width: 8px; }
+  .result::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
   .inv-list::-webkit-scrollbar { width: 8px; }
   .inv-list::-webkit-scrollbar-thumb {
     background: var(--border); border-radius: 4px;
