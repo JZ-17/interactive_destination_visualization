@@ -46,6 +46,22 @@
     </a>
   </div>
 
+  <a class="panel card wide" href="story/">
+    <p class="eyebrow">Site structure</p>
+    <h2>The whole story, in order</h2>
+    <p>
+      The rough layout of the final site: hook, three beats, the globe payoff,
+      then the tool. Both built views are embedded live; the three
+      <strong>drafted</strong> views sit in their narrative slots as wireframes
+      with their encoding specs.
+    </p>
+    <ul>
+      <li>2 built</li>
+      <li>3 drafted</li>
+      <li>Novel view: the Silence Grid</li>
+    </ul>
+  </a>
+
   <section class="panel caveats">
     <h3>What this data will and will not support</h3>
     <ul class="note">
@@ -114,6 +130,8 @@
     border-radius: 999px;
     color: var(--text-muted);
   }
+
+  .card.wide { margin-top: 14px; }
 
   .caveats { margin-top: 28px; }
   .caveats h3 { margin-bottom: 9px; }
