@@ -312,39 +312,27 @@
     touch-action: none;
     /* Scenery colours — deliberately low-chroma so the category hues on the
        city markers stay the most saturated thing on screen. */
-    --ocean-hi: #2f5f9e;
-    --ocean-lo: #101937;
-    --globe-land: #7b8296;
-    --globe-coast: #9aa0b2;
+    /* A bright globe, not a dark one: the category dots are dark and
+       saturated, so light terrain is what actually separates them. Against a
+       deep ocean the blue dot measured 1.07-1.39:1; against this it clears 3:1. */
+    --ocean-hi: #cbe7f5;
+    --ocean-lo: #7fb6d6;
+    --globe-land: #cfe0ab;
+    --globe-coast: #a6bd80;
   }
   svg.dragging { cursor: grabbing; }
 
-  @media (prefers-color-scheme: dark) {
-    :global(:root:not([data-theme='light'])) svg {
-      --ocean-hi: #27507f;
-      --ocean-lo: #0a1128;
-      --globe-land: #5b6278;
-      --globe-coast: #767d92;
-    }
-  }
-  :global(:root[data-theme='dark']) svg {
-    --ocean-hi: #27507f;
-    --ocean-lo: #0a1128;
-    --globe-land: #5b6278;
-    --globe-coast: #767d92;
-  }
-
   .ocean { stroke: none; }
-  .glow { fill: none; stroke: #8fc7f0; stroke-opacity: 0.35; stroke-width: 6; }
-  .rim { fill: none; stroke: rgba(255, 255, 255, 0.22); stroke-width: 1; }
-  .grat { fill: none; stroke: #ffffff; stroke-opacity: 0.13; stroke-width: 0.6; pointer-events: none; }
+  .glow { fill: none; stroke: #9cc9e0; stroke-opacity: 0.5; stroke-width: 7; }
+  .rim { fill: none; stroke: rgba(25, 30, 59, 0.22); stroke-width: 1; }
+  .grat { fill: none; stroke: #16324a; stroke-opacity: 0.13; stroke-width: 0.6; pointer-events: none; }
   .land { fill: var(--globe-land); stroke: var(--globe-coast); stroke-width: 0.5; pointer-events: none; }
 
   .arc {
     fill: none;
-    stroke: #ffffff;
+    stroke: #16324a;
     stroke-width: 2.5;
-    stroke-opacity: 0.85;
+    stroke-opacity: 0.8;
     stroke-linecap: round;
     pointer-events: none;
   }
@@ -352,21 +340,24 @@
   .dot {
     fill: var(--big);
     /* A light ring keeps the category hue separable from the terrain under it. */
-    stroke: #f4f6f8;
-    stroke-width: 1.5;
+    /* Dark ring: the terrain is now light, so a light ring would vanish. This
+       is also the relief the amber dot needs, since on land and shallow ocean
+       it sits at 2.1-2.4:1 rather than 3. */
+    stroke: #16324a;
+    stroke-width: 1.6;
     cursor: pointer;
   }
   .dot.gem { fill: var(--gem); }
   .dot.faded { opacity: 0.25; }
-  .dot.picked, .dot.hovered { stroke: #ffffff; stroke-width: 3; }
+  .dot.picked, .dot.hovered { stroke: #191e3b; stroke-width: 3; }
   .dot:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 2px; }
 
   .label {
     font-size: 13px;
     font-weight: 650;
-    fill: #ffffff;
+    fill: #16324a;
     paint-order: stroke;
-    stroke: rgba(10, 20, 30, 0.85);
+    stroke: rgba(255, 253, 247, 0.92);
     stroke-width: 3.5;
     pointer-events: none;
   }

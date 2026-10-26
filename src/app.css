@@ -1,5 +1,6 @@
 /* Design tokens. Colour encodes city category and nothing else — see CLAUDE.md.
-   Dark mode is a selected set of steps for the dark surface, not a flip. */
+   Light only: the Expedia-derived palette is a light-mode brand look and the
+   tan page is the point of it, so there is no dark theme to go out of sync. */
 :root {
   color-scheme: light;
 
@@ -27,46 +28,6 @@
 
   --radius: 8px;
   --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:where(:not([data-theme='light'])) {
-    color-scheme: dark;
-    --surface-1: #191e3b;
-    --page: #10142b;
-    --text-primary: #f2f4f8;
-    --text-secondary: #b9c0d4;
-    --text-muted: #8a91a8;
-    --gridline: #2a3054;
-    --axis: #39406a;
-    --border: rgba(255, 255, 255, 0.12);
-    --wash: rgba(255, 255, 255, 0.06);
-  --accent: #3b87f0;
-    --big: #3b87f0;
-    --gem: #bf8228;
-    --big-soft: rgba(59, 135, 240, 0.2);
-    --gem-soft: rgba(191, 130, 40, 0.2);
-    --land: #262c4e;
-  }
-}
-
-:root[data-theme='dark'] {
-  color-scheme: dark;
-  --surface-1: #191e3b;
-  --page: #10142b;
-  --text-primary: #f2f4f8;
-  --text-secondary: #b9c0d4;
-  --text-muted: #8a91a8;
-  --gridline: #2a3054;
-  --axis: #39406a;
-  --border: rgba(255, 255, 255, 0.12);
-  --wash: rgba(255, 255, 255, 0.06);
-  --accent: #3b87f0;
-  --big: #3b87f0;
-  --gem: #bf8228;
-  --big-soft: rgba(59, 135, 240, 0.2);
-  --gem-soft: rgba(191, 130, 40, 0.2);
-  --land: #262c4e;
 }
 
 * { box-sizing: border-box; }
