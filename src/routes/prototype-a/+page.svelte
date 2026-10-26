@@ -168,6 +168,7 @@
         {direction}
         {hoveredCity}
         {picks}
+        cityColor={true}
         onhovercity={(c) => (hoveredCity = c)}
         onpickcity={pick}
       />
@@ -228,7 +229,6 @@
   /* Cards: lift and glow on hover, the glow tinted by the city's category. */
   main.apple :global(.card) {
     border-radius: 16px;
-    border-color: rgba(0, 0, 0, 0.06);
     box-shadow: var(--lift-1);
   }
   main.apple :global(.card:hover),
@@ -236,14 +236,14 @@
     box-shadow:
       0 0 0 3px rgba(22, 104, 227, 0.14),
       var(--lift-3);
-    border-color: rgba(22, 104, 227, 0.25);
+    border-color: rgba(22, 104, 227, 0.75);
   }
   main.apple :global(.card.gem:hover),
   main.apple :global(.card.gem.hovered) {
     box-shadow:
       0 0 0 3px rgba(199, 122, 0, 0.16),
       var(--lift-3);
-    border-color: rgba(199, 122, 0, 0.3);
+    border-color: rgba(199, 122, 0, 0.8);
   }
   main.apple :global(.card.picked) {
     box-shadow:

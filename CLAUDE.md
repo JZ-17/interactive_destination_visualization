@@ -58,6 +58,10 @@ How 50 cities' official tourism sites describe themselves, and which cities soun
   is tinted separately there, so a coloured fill would be read against a
   different backdrop each time. Markers are a near-white core plus a 3.2px
   category ring.
+- **In Prototype A each city carries its own hue** for its card wash and its
+  value bar, with category moved to a translucent border round the card. Same
+  device as the country tints: identity only, no legend, no meaning. Hues are
+  assigned off alphabetical order so they never shift when the deck re-sorts.
 - **Country tints are basemap separation, not an encoding.** Golden-angle hues
   at fixed low saturation / high lightness, the way a political map gives
   neighbours different colours. There is no legend for them and nothing in the

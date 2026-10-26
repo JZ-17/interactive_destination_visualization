@@ -25,6 +25,8 @@
     portrait = false,
     /** Allow the card to be dragged into a comparison slot. */
     draggable = false,
+    /** Tint the card with the city's own hue; category moves to the border. */
+    cityColor = false,
     onhover = () => {},
     onpick = () => {}
   } = $props();
@@ -44,7 +46,11 @@
     e.dataTransfer.setData('text/plain', city.city);
     e.dataTransfer.effectAllowed = 'move';
   }}
+  style={cityColor
+    ? `--city: hsl(${city.hue} 58% 47%); --city-wash: hsl(${city.hue} 62% 97%);`
+    : undefined}
   class="card"
+  class:city-color={cityColor}
   class:dense
   class:portrait
   class:draggable
@@ -136,6 +142,21 @@
                 box-shadow 140ms ease-out;
   }
   .card.gem { border-left-color: var(--gem); }
+
+  /* Identity tint: every city gets its own hue for its wash and its bar, and
+     the category moves to a translucent border all the way round. The hue says
+     "a different city", nothing more — there is no legend for it. */
+  .card.city-color {
+    border: 2px solid rgba(22, 104, 227, 0.45);
+    background: var(--city-wash);
+  }
+  .card.city-color.gem { border-color: rgba(199, 122, 0, 0.5); }
+  /* .gem .fill sets the category colour at equal specificity and earlier in
+     the file, so the gem selector is repeated here to win on specificity
+     rather than order. Without it all 25 gems shared one bar colour. */
+  .card.city-color .fill,
+  .card.city-color.gem .fill { background: var(--city); }
+  .card.city-color .track { background: rgba(0, 0, 0, 0.06); }
   /* Hover grows the card. transform-origin:center keeps it from shoving its
      neighbours around, and the raised z-index stops the grid clipping it. */
   .card:hover, .card.hovered {

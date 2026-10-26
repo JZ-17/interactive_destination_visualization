@@ -316,6 +316,17 @@ export async function loadCities(fetchImpl = fetch) {
     });
   });
 
+  // A stable hue per city, for identity only — the same device the globe uses
+  // for countries. Assigned off the alphabetical order so it never shifts when
+  // the deck is re-sorted, and stepped by the golden angle so neighbouring
+  // cities land far apart on the wheel. It carries no meaning: category is on
+  // the card's border. See CLAUDE.md.
+  [...cities]
+    .sort((a, b) => a.city.localeCompare(b.city))
+    .forEach((c, i) => {
+      c.hue = (i * 137.508) % 360;
+    });
+
   const corpusThemeMean = {};
   THEMES.forEach((t) => (corpusThemeMean[t] = themeStats[t].mean));
 

@@ -26,6 +26,8 @@
     portrait = false,
     /** Allow cards to be dragged into a comparison slot. */
     draggable = false,
+    /** Tint each card with its city's own hue. */
+    cityColor = false,
     onhovercity = () => {},
     onpickcity = () => {}
   } = $props();
@@ -57,6 +59,7 @@
         {dense}
         {portrait}
         {draggable}
+        {cityColor}
         picked={picks.includes(r.city.city)}
         hovered={hoveredCity === r.city.city}
         onhover={onhovercity}
