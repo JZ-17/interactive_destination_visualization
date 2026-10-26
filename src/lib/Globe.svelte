@@ -195,9 +195,30 @@
     if (run.length > 1) runs.push(run);
     if (!runs.length) return null;
 
-    return runs
+    const d = runs
       .map((r) => r.map((q, i) => `${i ? 'L' : 'M'}${q[0].toFixed(2)},${q[1].toFixed(2)}`).join(''))
       .join(' ');
+
+    // Anchor the distance read-out to the middle of the LONGEST visible run,
+    // not the true midpoint: when half the arc is round the back, the true
+    // midpoint is not on screen. Nudged along the bow normal so the text
+    // clears the line. It is plain SVG text, so it stays upright however the
+    // globe is turned, and it disappears with the arc when both ends are on
+    // the far side.
+    const longest = runs.reduce((a, b) => (b.length > a.length ? b : a));
+    const m = longest[Math.floor(longest.length / 2)];
+    const label = { x: m[0] + nx * 15, y: m[1] + ny * 15 };
+
+    return { d, label };
+  });
+
+  /** Great-circle distance between the picked pair, in km. */
+  let pickKm = $derived.by(() => {
+    if (picks.length < 2) return null;
+    const a = byName.get(picks[0]);
+    const b = byName.get(picks[1]);
+    if (!a || !b) return null;
+    return 6371 * geoDistance([a.lon, a.lat], [b.lon, b.lat]);
   });
 
   /**
@@ -275,7 +296,7 @@
       <circle cx={size / 2} cy={size / 2} r={R} class="rim" />
 
       {#if pickArc}
-        <path class="arc" d={pickArc} />
+        <path class="arc" d={pickArc.d} />
       {/if}
 
       {#each visible as c (c.city)}
@@ -304,6 +325,16 @@
           ><title>{c.city}, {c.country} — {c.archetype}</title></circle>
         {/if}
       {/each}
+
+      {#if pickArc && pickKm !== null}
+        <text
+          class="arclabel"
+          x={pickArc.label.x}
+          y={pickArc.label.y}
+          text-anchor="middle"
+          dominant-baseline="middle"
+        >{Math.round(pickKm).toLocaleString()} km</text>
+      {/if}
 
       <!-- Label only what is being acted on. -->
       {#each visible.filter((c) => picks.includes(c.city) || hoveredCity === c.city) as c (c.city)}
@@ -399,6 +430,18 @@
     filter: drop-shadow(0 0 2.5px rgba(25, 30, 59, 0.95));
   }
   .dot:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 2px; }
+
+  .arclabel {
+    font-size: 12.5px;
+    font-weight: 700;
+    fill: #16324a;
+    paint-order: stroke;
+    stroke: rgba(255, 253, 247, 0.95);
+    stroke-width: 5;
+    stroke-linejoin: round;
+    pointer-events: none;
+    font-variant-numeric: tabular-nums;
+  }
 
   .label {
     font-size: 13px;

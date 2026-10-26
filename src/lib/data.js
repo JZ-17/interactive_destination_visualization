@@ -333,7 +333,13 @@ export async function loadCities(fetchImpl = fetch) {
  */
 export async function loadCountries(fetchImpl = fetch) {
   const topo = await json(asset('countries-110m.json'), { fetch: fetchImpl });
-  return feature(topo, topo.objects.countries);
+  const fc = feature(topo, topo.objects.countries);
+  // Antarctica's ring does not close around the pole, so an orthographic clip
+  // collapses it into a sliver smeared along the limb — it reads as a
+  // rendering fault rather than a continent. No city in the corpus is there,
+  // so it is dropped rather than patched.
+  fc.features = fc.features.filter((f) => f.id !== '010');
+  return fc;
 }
 
 // --- pairwise measures, for any two cities the user picks ----------------
