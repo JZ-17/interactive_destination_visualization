@@ -57,6 +57,23 @@ export const VOICE_BLURB = {
   'The Understated': 'leans on no particular move — nothing clears 0.5 sd'
 };
 
+/**
+ * Very short gloss, for the secondary moves listed under each city where
+ * there is no room for the full sentence.
+ */
+export const VOICE_SHORT = {
+  'The Braggart': 'rankings, big numbers',
+  'The Name-Dropper': 'outside authorities, UNESCO',
+  'The Closer': 'urgency, commands',
+  'The Host': 'talks straight to "you"',
+  'The Sensualist': 'the senses, charged nouns',
+  'The Underdog': 'pre-empts low expectations',
+  'The Bargain': 'price and value',
+  'The Good Citizen': 'sustainability, who it is for',
+  'The Cliche Machine': 'stock travel phrases',
+  'The Understated': 'no strong move'
+};
+
 /** What an archetype means: the theme that city over-indexes on. */
 export const ARCHETYPE_OF_THEME = {
   'Food': 'The Gourmand',

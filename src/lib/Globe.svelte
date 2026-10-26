@@ -43,8 +43,15 @@
   const size = 720;
   const R = size / 2 - 22;
 
-  // [yaw, pitch]. Starts over the Atlantic so both hemispheres have cities.
-  let rotation = $state([20, -15]);
+  /**
+   * [yaw, pitch]. The pitch is fixed: the globe spins left to right only, the
+   * way a desk globe does, so the horizon never tilts and the map keeps a
+   * stable up. Every city stays reachable by yaw alone — the furthest from
+   * this centre latitude is Tasmania at ~58 degrees, well inside the 90 the
+   * near hemisphere covers.
+   */
+  const PITCH = -15;
+  let rotation = $state([20, PITCH]);
   let dragging = $state(false);
 
   let projection = $derived(
@@ -62,11 +69,11 @@
 
   let byName = $derived(new Map(cities.map((c) => [c.city, c])));
 
-  /** Spin the globe so a city ends up facing the viewer. */
+  /** Spin the globe so a city ends up facing the viewer. Yaw only. */
   function faceCity(name) {
     const c = byName.get(name);
     if (!c) return;
-    rotation = [-c.lon, -c.lat];
+    rotation = [-c.lon, PITCH];
   }
 
   function pick(name) {
@@ -84,14 +91,13 @@
     const names = focusCities.filter((n) => byName.has(n));
     if (!names.length) return;
     if (names.length === 1) {
-      const c = byName.get(names[0]);
-      rotation = [-c.lon, -c.lat];
+      rotation = [-byName.get(names[0]).lon, PITCH];
       return;
     }
     const a = byName.get(names[0]);
     const b = byName.get(names[names.length - 1]);
     const mid = geoInterpolate([a.lon, a.lat], [b.lon, b.lat])(0.5);
-    rotation = [-mid[0], -mid[1]];
+    rotation = [-mid[0], PITCH];
   });
 
   // --- drag to spin ------------------------------------------------------
@@ -103,14 +109,11 @@
   }
   function move(e) {
     if (!dragging || !last) return;
-    const [px, py] = last;
+    const [px] = last;
     // Degrees per pixel, scaled so the drag tracks the surface at this radius.
+    // Vertical movement is ignored: one axis only.
     const k = 0.25;
-    rotation = [
-      rotation[0] + (e.clientX - px) * k,
-      // Clamp the pitch so the globe never flips over.
-      Math.max(-80, Math.min(80, rotation[1] - (e.clientY - py) * k))
-    ];
+    rotation = [rotation[0] + (e.clientX - px) * k, PITCH];
     last = [e.clientX, e.clientY];
   }
   function up(e) {
@@ -394,8 +397,8 @@
     width: 100%;
     height: 100%;
     display: block;
-    cursor: grab;
-    touch-action: none;
+    cursor: ew-resize;
+    touch-action: pan-y;
     /* Scenery colours — deliberately low-chroma so the category hues on the
        city markers stay the most saturated thing on screen. */
     /* A bright globe, not a dark one: the category dots are dark and
@@ -406,7 +409,7 @@
     --globe-land: #cfe0ab;
     --globe-coast: #a6bd80;
   }
-  svg.dragging { cursor: grabbing; }
+  svg.dragging { cursor: ew-resize; }
 
   .ocean { stroke: none; }
   .glow { fill: none; stroke: #9cc9e0; stroke-opacity: 0.5; stroke-width: 7; }

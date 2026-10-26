@@ -11,7 +11,7 @@
    */
   import { scaleLinear } from 'd3-scale';
   import {
-    THEMES, PERSONALITIES, VOICE_BLURB,
+    THEMES, PERSONALITIES, VOICE_BLURB, VOICE_SHORT,
     greatCircleKm, sharedDescriptiveWords
   } from './data.js';
 
@@ -77,7 +77,7 @@
       .filter((p) => p !== c.personality)
       .sort((x, y) => c.voice[y] - c.voice[x])
       .slice(0, n)
-      .map((p) => p.replace('The ', ''));
+      .map((p) => ({ name: p, short: VOICE_SHORT[p] ?? '' }));
   }
 
   const fmt = (v, d = 2) => v.toFixed(d);
@@ -195,8 +195,13 @@
       <div>
         <h3>How they sell it</h3>
         <p class="note scalenote">
-          Each city's strongest rhetorical move, in standard deviations above
-          the average across all fifty.
+          Each city's strongest rhetorical move, then the next two it leans on.
+          <strong>sd</strong> is standard deviations: every vocabulary rate is
+          scored against the fifty-city average and spread, and a move's
+          strength is the mean of its rates. 1.41 sd means that city sits 1.41
+          standard deviations above average on that kind of language. Below
+          0.5 sd a city is called <em>The Understated</em> — it is not leaning
+          on anything.
         </p>
         <dl class="voice">
           {#each [a, b] as c (c.city)}
@@ -207,7 +212,11 @@
                 <span class="score">{fmt(c.personalityStrength)} sd</span>
               </span>
               <span class="blurb">{VOICE_BLURB[c.personality] ?? ''}</span>
-              <span class="q">also {alsoLeansOn(c).join(' · ')}</span>
+              <ul class="also">
+                {#each alsoLeansOn(c) as m (m.name)}
+                  <li><span class="also-name">{m.name.replace('The ', '')}</span> {m.short}</li>
+                {/each}
+              </ul>
             </dd>
           {/each}
         </dl>
@@ -326,6 +335,13 @@
   dl.voice dd { margin: 1px 0 0; }
   .lead { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
   .blurb { display: block; font-size: 0.72rem; color: var(--text-secondary); margin-top: 1px; }
+  ul.also {
+    list-style: none; margin: 4px 0 0; padding: 0;
+    font-size: 0.7rem; color: var(--text-muted);
+  }
+  ul.also li { margin-top: 1px; }
+  .also-name { color: var(--text-secondary); font-weight: 600; }
+  ul.also li::before { content: 'also '; color: var(--text-muted); }
   .scalenote { margin-bottom: 8px; }
   .lead .score { display: inline; margin: 0; }
 
