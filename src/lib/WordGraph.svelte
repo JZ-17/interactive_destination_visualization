@@ -15,6 +15,17 @@
    * that goes in a report.
    */
   import { WORD_POOLS, wordIndex } from './data.js';
+  import { cubicOut } from 'svelte/easing';
+
+  /** Grow a node out of the centre of the graph as it appears. */
+  function spawn(node, { delay = 0, duration = 320 } = {}) {
+    return {
+      delay,
+      duration,
+      easing: cubicOut,
+      css: (t) => `opacity:${t}; transform: scale(${0.35 + 0.65 * t}); transform-origin:${CX}px ${CY}px;`
+    };
+  }
 
   let {
     cities = [],
@@ -104,9 +115,31 @@
   });
 
   let active = $derived(hubs.find((h) => h.word === selectedWord) ?? null);
-  let litCities = $derived(new Set(active ? active.used : []));
 
-  const nodeAt = (name) => ring.find((n) => n.city.city === name);
+  let byName = $derived(new Map(cities.map((c) => [c.city, c])));
+
+  /**
+   * When a word is chosen, only its cities are drawn — and they are spaced
+   * evenly around the whole ring rather than left in their fifty-city slots.
+   * With all fifty on screen the names collided badly; a subset given the
+   * full circumference never does.
+   */
+  let spokeCities = $derived.by(() => {
+    if (!active) return [];
+    const used = active.used
+      .map((n) => byName.get(n))
+      .filter(Boolean)
+      .sort((a, b) => a.city.localeCompare(b.city));
+    return used.map((c, i) => {
+      const angle = (i / used.length) * Math.PI * 2 - Math.PI / 2;
+      return {
+        city: c,
+        angle,
+        x: CX + Math.cos(angle) * RING,
+        y: CY + Math.sin(angle) * RING
+      };
+    });
+  });
 </script>
 
 <figure>
@@ -129,66 +162,65 @@
 
   <svg viewBox="0 0 {W} {H}" role="img"
        aria-label="Shared {pool.label.toLowerCase()} across {cities.length} cities">
-    <circle cx={CX} cy={CY} r={RING} class="ring" />
+    <circle cx={CX} cy={CY} r={RING} class="ring" class:live={!!active} />
 
     {#if active}
-      {#each active.used as name (name)}
-        {@const n = nodeAt(name)}
-        {#if n}
-          <line class="spoke" x1={active.x} y1={active.y} x2={n.x} y2={n.y} />
-        {/if}
+      <!-- Only this word's cities, spaced evenly around the whole ring, each
+           one growing out of the middle as it arrives. -->
+      {#each spokeCities as n, i (n.city.city)}
+        <g in:spawn={{ delay: i * 14 }}>
+          <line class="spoke" x1={CX} y1={CY} x2={n.x} y2={n.y} />
+        </g>
+      {/each}
+
+      {#each spokeCities as n, i (n.city.city)}
+        <g
+          class="citynode"
+          in:spawn={{ delay: 60 + i * 14 }}
+          role="button"
+          tabindex="0"
+          aria-label="{n.city.city}, uses {active.word}"
+          onclick={() => onpickcity(n.city.city)}
+          onkeydown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onpickcity(n.city.city); }
+          }}
+          onmouseenter={() => onhovercity(n.city.city)}
+          onmouseleave={() => onhovercity(null)}
+          onfocus={() => onhovercity(n.city.city)}
+          onblur={() => onhovercity(null)}
+        >
+          <!-- A 6px dot is too small to hit; this invisible disc gives the
+               city a real target without changing how it looks. -->
+          <circle class="hit" cx={n.x} cy={n.y} r="14" />
+          <circle
+            cx={n.x} cy={n.y}
+            r={picks.includes(n.city.city) ? 8 : 6}
+            class="citydot"
+            class:gem={n.city.category === 'hidden'}
+            class:picked={picks.includes(n.city.city)}
+            class:hovered={hoveredCity === n.city.city}
+            style={n.city.hue !== undefined ? `--dot-city: hsl(${n.city.hue} 62% 52%);` : undefined}
+          ><title>{n.city.city}, {n.city.country}</title></circle>
+          <text
+            class="cityname lit"
+            x={n.x + Math.cos(n.angle) * 14}
+            y={n.y + Math.sin(n.angle) * 14}
+            text-anchor={Math.cos(n.angle) < -0.1 ? 'end' : Math.cos(n.angle) > 0.1 ? 'start' : 'middle'}
+            dominant-baseline="middle"
+          >{n.city.city}</text>
+        </g>
       {/each}
     {/if}
 
-    <!-- cities -->
-    {#each ring as n (n.city.city)}
-      {@const lit = litCities.has(n.city.city)}
-      {@const dim = !!active && !lit}
-      <g
-        class="citynode"
-        class:dim
-        role="button"
-        tabindex="0"
-        aria-label="{n.city.city}{lit ? ', uses this word' : ''}"
-        onclick={() => onpickcity(n.city.city)}
-        onkeydown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onpickcity(n.city.city); }
-        }}
-        onmouseenter={() => onhovercity(n.city.city)}
-        onmouseleave={() => onhovercity(null)}
-        onfocus={() => onhovercity(n.city.city)}
-        onblur={() => onhovercity(null)}
-      >
-        <!-- A 4.5px dot is far too small to hit; this invisible disc gives
-             the city a real target without changing how it looks. -->
-        <circle class="hit" cx={n.x} cy={n.y} r="13" />
-        <circle
-          cx={n.x} cy={n.y}
-          r={picks.includes(n.city.city) ? 7 : lit ? 6 : 4.5}
-          class="citydot"
-          class:gem={n.city.category === 'hidden'}
-          class:picked={picks.includes(n.city.city)}
-          class:hovered={hoveredCity === n.city.city}
-          style={n.city.hue !== undefined ? `--dot-city: hsl(${n.city.hue} 62% 52%);` : undefined}
-        ><title>{n.city.city}, {n.city.country}</title></circle>
-        <text
-          class="cityname"
-          class:lit
-          x={n.x + Math.cos(n.angle) * 13}
-          y={n.y + Math.sin(n.angle) * 13}
-          text-anchor={Math.cos(n.angle) < -0.1 ? 'end' : Math.cos(n.angle) > 0.1 ? 'start' : 'middle'}
-          dominant-baseline="middle"
-        >{n.city.city}</text>
-      </g>
-    {/each}
-
     <!-- word hubs -->
-    {#each hubs as h (h.word)}
+    {#each active ? [active] : hubs as h (h.word)}
       {@const on = selectedWord === h.word}
+      {@const hx = on ? CX : h.x}
+      {@const hy = on ? CY : h.y}
+      {@const hr = on ? Math.max(h.r, 52) : h.r}
       <g
         class="hub"
         class:on
-        class:faded={!!active && !on}
         role="button"
         tabindex="0"
         aria-pressed={on}
@@ -201,11 +233,13 @@
           }
         }}
       >
-        <circle cx={h.x} cy={h.y} r={h.r} class="hubdot" />
-        <text class="hubword" x={h.x} y={h.y} text-anchor="middle" dominant-baseline="middle">
+        <circle cx={hx} cy={hy} r={hr} class="hubdot" />
+        <text class="hubword" x={hx} y={hy} text-anchor="middle" dominant-baseline="middle">
           {h.word}
         </text>
-        <text class="hubcount" x={h.x} y={h.y + h.r + 9} text-anchor="middle">{h.count}</text>
+        <text class="hubcount" x={hx} y={hy + hr + 11} text-anchor="middle">
+          {h.count} of {cities.length}
+        </text>
       </g>
     {/each}
   </svg>
@@ -218,7 +252,8 @@
         : ''}.
     {:else}
       Showing the {hubs.length} most widely shared {pool.label.toLowerCase()}.
-      The number under each is how many of the {cities.length} cities use it.
+      The number under each is how many of the {cities.length} cities use it —
+      click one to bring those cities in.
     {/if}
   </p>
 </figure>
@@ -229,7 +264,8 @@
   .pools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
   svg { width: 100%; height: auto; display: block; margin-top: 4px; }
 
-  .ring { fill: none; stroke: var(--gridline); stroke-width: 1; }
+  .ring { fill: none; stroke: var(--gridline); stroke-width: 1; opacity: 0.45; transition: opacity 240ms; }
+  .ring.live { opacity: 1; }
 
   .spoke {
     stroke: var(--text-primary);
@@ -240,7 +276,6 @@
 
   .citynode { cursor: pointer; }
   .hit { fill: transparent; }
-  .citynode.dim { opacity: 0.28; }
   .citydot {
     fill: var(--dot-city, var(--big));
     stroke: var(--surface-1);
@@ -258,11 +293,10 @@
   .citynode:hover .cityname { fill: var(--text-primary); }
   /* The default focus box draws a rectangle around a round node; ring the
      node itself instead. */
-  .citynode:focus-visible { outline: none; }
+  .citynode:focus { outline: none; }
   .citynode:focus-visible .citydot { stroke: var(--text-primary); stroke-width: 2.5; }
 
   .hub { cursor: pointer; }
-  .hub.faded { opacity: 0.3; }
   .hubdot {
     fill: var(--wash);
     stroke: var(--axis);
@@ -270,9 +304,18 @@
     transition: fill 120ms, stroke 120ms;
   }
   .hub:hover .hubdot { stroke: var(--text-primary); }
-  .hub:focus-visible { outline: none; }
+  .hub:focus { outline: none; }
   .hub:focus-visible .hubdot { stroke: var(--text-primary); stroke-width: 2.5; }
-  .hub.on .hubdot { fill: var(--big-soft); stroke: var(--big); stroke-width: 2; }
+  .hub.on .hubdot { fill: var(--big-soft); stroke: var(--big); stroke-width: 2.5; }
+  .hub .hubdot, .hub .hubword, .hub .hubcount {
+    transition: cx 320ms cubic-bezier(.2,.7,.3,1), cy 320ms cubic-bezier(.2,.7,.3,1),
+                r 320ms cubic-bezier(.2,.7,.3,1), x 320ms cubic-bezier(.2,.7,.3,1),
+                y 320ms cubic-bezier(.2,.7,.3,1), font-size 240ms;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hub .hubdot, .hub .hubword, .hub .hubcount { transition: none; }
+  }
+  .hub.on .hubword { font-size: 15px; }
   .hubword {
     font-size: 11px;
     font-weight: 650;
