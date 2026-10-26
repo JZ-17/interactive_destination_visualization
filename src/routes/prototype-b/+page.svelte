@@ -177,6 +177,7 @@
               typeFirst={true}
               portrait={true}
               draggable={true}
+              cityColor={true}
               onhovercity={(c) => (hoveredCity = c)}
               onpickcity={pick}
             />
@@ -256,6 +257,7 @@
                   rank={rankOf.get(held.city)}
                   total={cities.length}
                   portrait={true}
+                  cityColor={true}
                   picked={true}
                   hovered={hoveredCity === held.city}
                   onhover={(c) => (hoveredCity = c)}
@@ -282,6 +284,7 @@
               {cities}
               compact={true}
               showEmptyState={false}
+              cityColor={true}
               onclear={() => (slots = [null, null])}
               onhovercity={(c) => (hoveredCity = c)}
             />

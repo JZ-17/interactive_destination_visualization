@@ -41,12 +41,19 @@
   // exists for the same reason in reverse — at full width the chart would be
   // squeezed into ~370px and every label would shrink with it.
   let ROW = $derived(compact ? 21 : 27);
-  let LABEL_W = $derived(compact ? 100 : 150);
-  let ARM = $derived(compact ? 108 : 258);
-  let GUTTER = $derived(compact ? 10 : 14);
-  let width = $derived(LABEL_W + ARM * 2 + GUTTER * 2);
-  let LEFT_BASE = $derived(ARM + GUTTER);             // zero baseline for city A
-  let RIGHT_BASE = $derived(ARM + GUTTER + LABEL_W);  // zero baseline for city B
+  let LABEL_W = $derived(compact ? 118 : 150);
+  let ARM = $derived(compact ? 92 : 230);
+  let GUTTER = $derived(compact ? 8 : 14);
+  /**
+   * Every row carries both values, so each side reserves a fixed column for
+   * them at the outer edge. Putting the number against the end of its own bar
+   * does not work when every bar is labelled: a zero-length bar would push its
+   * value into the theme names in the middle.
+   */
+  let VAL_W = $derived(compact ? 30 : 44);
+  let width = $derived(GUTTER * 2 + VAL_W * 2 + ARM * 2 + LABEL_W);
+  let LEFT_BASE = $derived(GUTTER + VAL_W + ARM);     // zero baseline for city A
+  let RIGHT_BASE = $derived(LEFT_BASE + LABEL_W);     // zero baseline for city B
   let height = $derived(THEMES.length * ROW + 36);
 
   // One fixed length scale across every pairing, so a bar of a given length
@@ -60,11 +67,17 @@
   let shared = $derived(a && b ? sharedDescriptiveWords(a, b) : []);
 
   /** The strongest rhetorical moves a city leans on, for the voice read-out. */
-  function topVoice(c, n = 3) {
+  /**
+   * The next strongest moves after the one the city is named for. The winner
+   * is excluded: listing it again produced "The Cliche Machine 1.68 sd Cliche
+   * Machine · Braggart · Closer", which says the same thing twice.
+   */
+  function alsoLeansOn(c, n = 2) {
     return [...PERSONALITIES]
+      .filter((p) => p !== c.personality)
       .sort((x, y) => c.voice[y] - c.voice[x])
       .slice(0, n)
-      .map((p) => ({ name: p, z: c.voice[p] }));
+      .map((p) => p.replace('The ', ''));
   }
 
   const fmt = (v, d = 2) => v.toFixed(d);
@@ -154,38 +167,29 @@
               rx="2"
             ><title>{b.city} · {t}: {fmt(b.themes[t])} per 1,000 words</title></rect>
 
-            <!-- A near-full-length bar leaves no room outside it for the
-                 value, so the label flips inside rather than running off the
-                 edge of the chart. -->
-            {#if a.dominantTheme === t}
-              {@const outside = LEFT_BASE - len(a.themes[t]) - 6}
-              <text
-                class="flag" class:inside={outside < 26}
-                x={outside < 26 ? LEFT_BASE - len(a.themes[t]) + 6 : outside}
-                y={midY}
-                text-anchor={outside < 26 ? 'start' : 'end'}
-                dominant-baseline="middle"
-              >{fmt(a.themes[t], 1)}</text>
-            {/if}
-            {#if b.dominantTheme === t}
-              {@const outside = RIGHT_BASE + len(b.themes[t]) + 6}
-              <text
-                class="flag" class:inside={outside > width - 26}
-                x={outside > width - 26 ? RIGHT_BASE + len(b.themes[t]) - 6 : outside}
-                y={midY}
-                text-anchor={outside > width - 26 ? 'end' : 'start'}
-                dominant-baseline="middle"
-              >{fmt(b.themes[t], 1)}</text>
-            {/if}
+            <!-- Every theme carries its number, in a fixed column at each
+                 outer edge so the figures line up and never collide with a
+                 bar or with the theme names. The archetype theme is set in
+                 heavier ink rather than being the only one labelled. -->
+            <text
+              class="flag" class:arch={a.dominantTheme === t}
+              x={GUTTER + VAL_W - 6} y={midY}
+              text-anchor="end" dominant-baseline="middle"
+            >{fmt(a.themes[t], 1)}</text>
+            <text
+              class="flag" class:arch={b.dominantTheme === t}
+              x={width - GUTTER - VAL_W + 6} y={midY}
+              text-anchor="start" dominant-baseline="middle"
+            >{fmt(b.themes[t], 1)}</text>
           </g>
         {/each}
         <line class="baseline" x1={LEFT_BASE} x2={LEFT_BASE} y1="18" y2={height - 8} />
         <line class="baseline" x1={RIGHT_BASE} x2={RIGHT_BASE} y1="18" y2={height - 8} />
       </svg>
       <p class="note">
-        Mentions per 1,000 words. Labelled bars are each city's
-        <strong>archetype theme</strong> — the one it over-indexes on, which is not
-        always its longest bar.
+        Mentions per 1,000 words. The <strong>bold figure</strong> on each side
+        is that city's archetype theme — the one it over-indexes on, which is
+        not always its longest bar.
       </p>
     </section>
 
@@ -193,25 +197,30 @@
       <div>
         <h3>How they sell it</h3>
         <dl class="voice">
-          <dt>{a.city}</dt>
-          <dd>
-            <strong>{a.personality}</strong>
-            <span class="score">{fmt(a.personalityStrength)} sd</span>
-            <span class="q">{topVoice(a).map((v) => v.name.replace('The ', '')).join(' · ')}</span>
-          </dd>
-          <dt>{b.city}</dt>
-          <dd>
-            <strong>{b.personality}</strong>
-            <span class="score">{fmt(b.personalityStrength)} sd</span>
-            <span class="q">{topVoice(b).map((v) => v.name.replace('The ', '')).join(' · ')}</span>
-          </dd>
+          {#each [a, b] as c (c.city)}
+            <dt>{c.city}</dt>
+            <dd>
+              <span class="lead">
+                <strong>{c.personality}</strong>
+                <span class="score">{fmt(c.personalityStrength)} sd</span>
+              </span>
+              <span class="q">also {alsoLeansOn(c).join(' · ')}</span>
+            </dd>
+          {/each}
         </dl>
       </div>
       <div>
         <h3>Words they share</h3>
         {#if shared.length}
           <ul class="words">
-            {#each shared as w}<li>{w}</li>{/each}
+            {#each shared as w}
+              <li class:signature={w === a.signatureWord && w === b.signatureWord}>
+                {w}
+                {#if w === a.signatureWord && w === b.signatureWord}
+                  <span class="badge">both over-use</span>
+                {/if}
+              </li>
+            {/each}
           </ul>
         {:else}
           <p class="note">
@@ -219,10 +228,23 @@
             themselves with different vocabulary entirely.
           </p>
         {/if}
-        <p class="note sig">
-          Signature word: <strong>{a.signatureWord || '—'}</strong> ({a.city}) ·
-          <strong>{b.signatureWord || '—'}</strong> ({b.city})
-        </p>
+        {#if a.signatureWord && a.signatureWord === b.signatureWord}
+          {#if !shared.includes(a.signatureWord)}
+          <!-- Both over-use the same word: say it once rather than printing
+               the same word twice with a city name after each. -->
+            <p class="note sig">
+              Both over-use the same word: <strong>{a.signatureWord}</strong>
+            </p>
+          {/if}
+        {:else}
+          <p class="note siglabel">Signature word — most over-used against the rest of the corpus</p>
+          <dl class="sigs">
+            <dt>{a.city}</dt>
+            <dd>{a.signatureWord || '—'}</dd>
+            <dt>{b.city}</dt>
+            <dd>{b.signatureWord || '—'}</dd>
+          </dl>
+        {/if}
       </div>
     </section>
   </div>
@@ -278,10 +300,12 @@
   .h2h.city-color .bar.side-b,
   .h2h.city-color .bar.side-b.gem { fill: var(--b-color); }
   .baseline { stroke: var(--axis); stroke-width: 1; }
-  .flag { font-size: 9.5px; font-weight: 650; fill: var(--text-secondary);
-          font-variant-numeric: tabular-nums; }
-  /* Sitting on the bar, so it needs to read against the category colour. */
-  .flag.inside { fill: #fffdf8; }
+  .flag {
+    font-size: 9.5px; font-weight: 500; fill: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  /* The archetype theme: heavier, since it is no longer the only one labelled. */
+  .flag.arch { font-weight: 750; fill: var(--text-primary); }
 
   .two-up { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
   /* In the narrow column there is no room for two; stack them. */
@@ -290,15 +314,31 @@
   .h2h.compact .sub { font-size: 0.68rem; }
   .h2h.compact { gap: 12px; }
   dl.voice { margin: 0; font-size: 0.78rem; }
-  dl.voice dt { color: var(--text-muted); font-size: 0.7rem; margin-top: 8px; }
+  dl.voice dt { color: var(--text-muted); font-size: 0.7rem; margin-top: 9px; }
   dl.voice dt:first-child { margin-top: 0; }
   dl.voice dd { margin: 1px 0 0; }
+  .lead { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+  .lead .score { display: inline; margin: 0; }
+
+  .siglabel { margin-top: 10px; }
+  .sigs {
+    margin: 4px 0 0;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 2px 10px;
+    font-size: 0.74rem;
+  }
+  .sigs dt { color: var(--text-muted); }
+  .sigs dd { margin: 0; font-weight: 650; }
 
   ul.words { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 5px; }
   ul.words li {
     font-size: 0.72rem; padding: 2px 7px;
     border: 1px solid var(--border); border-radius: 999px;
+    display: inline-flex; align-items: baseline; gap: 5px;
   }
+  ul.words li.signature { border-color: var(--text-muted); font-weight: 650; }
+  .badge { font-size: 0.62rem; font-weight: 400; color: var(--text-muted); }
   .sig { margin-top: 9px; }
 
   @media (max-width: 620px) {
