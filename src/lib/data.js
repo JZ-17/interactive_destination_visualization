@@ -485,3 +485,68 @@ export function nearestByTheme(city, cities, n = 5) {
     .sort((x, y) => x.distance - y.distance)
     .slice(0, n);
 }
+
+// --- the boarding-pass frame --------------------------------------------
+
+/**
+ * The airport each city flies into, for the ticket. Not in the CSV — these
+ * are real IATA codes, added here because a made-up code reads as a bug to
+ * anyone who has ever flown.
+ *
+ * Four cities have no airport of their own and take the one you would
+ * actually land at: Mecca → Jeddah, The Hague → Rotterdam The Hague,
+ * Ghent → Brussels, Tasmania → Hobart.
+ */
+export const IATA = {
+  'Bangkok': 'BKK', 'Athens': 'ATH', 'London': 'LHR', 'Istanbul': 'IST',
+  'Dubai': 'DXB', 'Mecca': 'JED', 'Sydney': 'SYD', 'Tokyo': 'HND',
+  'Rome': 'FCO', 'Barcelona': 'BCN', 'Paris': 'CDG', 'Los Angeles': 'LAX',
+  'Berlin': 'BER', 'Singapore': 'SIN', 'Seoul': 'ICN', 'Prague': 'PRG',
+  'New York City': 'JFK', 'Vienna': 'VIE', 'Marrakech': 'RAK', 'Bali': 'DPS',
+  'Zurich': 'ZRH', 'Taipei': 'TPE', 'Lisbon': 'LIS', 'Reykjavík': 'KEF',
+  'Cusco': 'CUZ', 'Bucharest': 'OTP', 'Chicago': 'ORD', 'Warsaw': 'WAW',
+  'Zagreb': 'ZAG', 'Vilnius': 'VNO', 'The Hague': 'RTM', 'Almaty': 'ALA',
+  'Helsinki': 'HEL', 'Bologna': 'BLQ', 'Hamburg': 'HAM', 'Sao Paulo': 'GRU',
+  'Belgrade': 'BEG', 'Bogota': 'BOG', 'Ohrid': 'OHD', 'Marseille': 'MRS',
+  'Ottawa': 'YOW', 'Malmö': 'MMX', 'Penang': 'PEN', 'Tasmania': 'HBA',
+  'Mendoza': 'MDZ', 'Tbilisi': 'TBS', 'Ghent': 'BRU', 'Yerevan': 'EVN',
+  'Brno': 'BRQ', 'Luxembourg City': 'LUX'
+};
+
+/**
+ * One pool of every describing word a city actually wrote — its adjectives,
+ * its charged nouns and its superlatives together. Shaped like the entries in
+ * WORD_POOLS so `wordIndex` can index it unchanged.
+ *
+ * These are raw extractions, so a word here is one a tourism board really
+ * used. Theme and personality labels are our inferences; these are not.
+ */
+export const DESCRIBING_POOL = {
+  id: 'describing',
+  label: 'Describing words',
+  get: (c) => [...c.adjectives, ...c.highSentimentNouns, ...c.superlatives]
+};
+
+/**
+ * This city's describing words, ranked by how many of the fifty cities use
+ * the same word — the evidence behind "cities love using the same words".
+ *
+ * A word only one city uses is dropped: the point of the view is overlap, and
+ * a count of 1 is the absence of it. `index` comes from
+ * `wordIndex(cities, DESCRIBING_POOL)`, built once rather than per selection.
+ */
+export function commonWords(city, index, n = 14) {
+  const seen = new Set();
+  const out = [];
+  for (const raw of DESCRIBING_POOL.get(city)) {
+    const word = raw.trim().toLowerCase();
+    if (!word || seen.has(word)) continue;
+    seen.add(word);
+    const users = index.get(word) ?? [];
+    if (users.length < 2) continue;
+    out.push({ word, cities: users.length });
+  }
+  return out
+    .sort((a, b) => b.cities - a.cities || a.word.localeCompare(b.word))
+    .slice(0, n);
+}

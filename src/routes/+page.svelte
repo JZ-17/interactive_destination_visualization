@@ -14,6 +14,22 @@
     with different layouts and different coordination.
   </p>
 
+  <a class="panel card wide first" href="board/">
+    <p class="eyebrow">The hook</p>
+    <h2>Where do you want to go today?</h2>
+    <p>
+      The front door. Pick a destination, take the boarding pass, then fly
+      through the words that city's tourism board wrote — and watch how many of
+      the other forty-nine wrote them too. Twenty-six of the fifty call
+      themselves <em>unique</em>.
+    </p>
+    <ul>
+      <li>Dropdown or dice → destination</li>
+      <li>Scroll → the fly-through</li>
+      <li>Word size = cities using it</li>
+    </ul>
+  </a>
+
   <div class="cards">
     <a class="panel card" href="prototype-a/">
       <p class="eyebrow">Prototype A</p>
@@ -132,6 +148,8 @@
   }
 
   .card.wide { margin-top: 14px; }
+  /* The hook sits above the two prototypes, so it leads rather than follows. */
+  .card.first { margin-top: 28px; }
 
   .caveats { margin-top: 28px; }
   .caveats h3 { margin-bottom: 9px; }
