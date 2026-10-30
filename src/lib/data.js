@@ -550,3 +550,113 @@ export function commonWords(city, index, n = 14) {
     .sort((a, b) => b.cities - a.cities || a.word.localeCompare(b.word))
     .slice(0, n);
 }
+
+/** Words as the descriptions write them: letters, digits and apostrophes. */
+const TOKENS = /[a-z0-9\u00e0-\u00ff']+/g;
+
+function tokenCounts(text) {
+  const counts = new Map();
+  for (const t of text.match(TOKENS) ?? []) counts.set(t, (counts.get(t) ?? 0) + 1);
+  return counts;
+}
+
+/** Occurrences of a multi-word entry like "most popular", which is no token. */
+function phraseCount(text, phrase) {
+  let n = 0;
+  let i = text.indexOf(phrase);
+  while (i !== -1) {
+    n += 1;
+    i = text.indexOf(phrase, i + phrase.length);
+  }
+  return n;
+}
+
+/**
+ * How often each word is actually written, counted two ways:
+ *
+ *   `total` — across all fifty descriptions put together.
+ *   `per`   — inside one city's own description, keyed by city name.
+ *
+ * Both are RAW counts. Across the corpus that matters a lot, because the
+ * descriptions differ about tenfold in length and the longest sites
+ * contribute more of everything; the UI says so where it shows these.
+ */
+export function mentionIndex(cities) {
+  const total = new Map();
+  const per = new Map();
+  const texts = new Map();
+  const phrases = new Set();
+
+  for (const c of cities) {
+    const text = (c.description ?? '').toLowerCase();
+    texts.set(c.city, text);
+    const counts = tokenCounts(text);
+    per.set(c.city, counts);
+    for (const [w, n] of counts) total.set(w, (total.get(w) ?? 0) + n);
+    for (const raw of DESCRIBING_POOL.get(c)) {
+      const w = raw.trim().toLowerCase();
+      if (w.includes(' ')) phrases.add(w);
+    }
+  }
+
+  for (const phrase of phrases) {
+    for (const c of cities) {
+      const n = phraseCount(texts.get(c.city) ?? '', phrase);
+      if (!n) continue;
+      per.get(c.city).set(phrase, n);
+      total.set(phrase, (total.get(phrase) ?? 0) + n);
+    }
+  }
+
+  return { total, per };
+}
+
+/**
+ * Every describing word that more than one of the fifty cities uses. 406 of
+ * them, which is why the view that shows this scrolls.
+ *
+ * `by` picks the ranking: 'mentions' is how many times the word appears in
+ * all fifty descriptions put together, 'cities' is how many of the fifty use
+ * it at all. They are different questions — one word repeated sixty-five
+ * times by a handful of sites is not the same finding as one word reached
+ * for by thirty different cities — so the view lets the reader switch and
+ * carries both numbers on every row.
+ *
+ * A word only one city uses is dropped either way: the subject is shared
+ * vocabulary, and a count of one city is the absence of it.
+ */
+export function corpusWords(index, mentions, by = 'mentions', n = 0) {
+  const out = [];
+  for (const [word, users] of index) {
+    if (users.length < 2) continue;
+    out.push({ word, cities: users.length, mentions: mentions.get(word) ?? 0 });
+  }
+  const key = by === 'cities' ? 'cities' : 'mentions';
+  const tie = key === 'cities' ? 'mentions' : 'cities';
+  out.sort((a, b) => b[key] - a[key] || b[tie] - a[tie] || a.word.localeCompare(b.word));
+  return n > 0 ? out.slice(0, n) : out;
+}
+
+/**
+ * One city's share of that list. Same words as the corpus list, so anything
+ * here can be found over there — but each row also carries `own`, how many
+ * times THIS city writes the word, and ranking by times used ranks by that.
+ *
+ * Which is a different number from the corpus's, on a much smaller scale:
+ * Almaty writes "cultural" a handful of times, all fifty write it 69. The
+ * card that shows `own` therefore gets its own axis, and the UI says so.
+ */
+export function cityWords(city, corpus, counts, by = 'mentions') {
+  const mine = new Set(
+    DESCRIBING_POOL.get(city).map((w) => w.trim().toLowerCase())
+  );
+  const rows = corpus
+    .filter((w) => mine.has(w.word))
+    .map((w) => ({ ...w, own: counts?.get(w.word) ?? 0 }));
+
+  // By cities, the two lists measure the same thing and keep one order.
+  if (by === 'cities') return rows;
+  return rows.sort(
+    (a, b) => b.own - a.own || b.mentions - a.mentions || a.word.localeCompare(b.word)
+  );
+}

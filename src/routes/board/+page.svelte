@@ -1,26 +1,39 @@
 <script>
   /**
-   * The front door, in two frames.
+   * The front door, in three frames.
    *
    * FRAME 1 — pick a destination; the boarding pass fills in.
    * FRAME 2 — the words that city uses that nearly everyone else uses too.
+   * FRAME 3 — landed: that city's ranked words beside all fifty cities',
+   *           on one shared scale, so the overlap is countable and not just
+   *           asserted.
    *
-   * Frame 2 is the hook for the whole project: the reason "which cities sound
-   * alike?" is worth asking is that the answer is "most of them, quite a lot".
+   * Frames 2 and 3 are the hook for the whole project: the reason "which
+   * cities sound alike?" is worth asking is that the answer is "most of them,
+   * quite a lot".
    *
-   * This frame has its own palette — the pink page and the brown ticket are
-   * the intro's look, not the project's. The two data colours stay reserved
-   * for city category and do not appear here, because nothing here encodes it.
+   * After the boarding pass, every place the city is named is a dropdown, so
+   * a reader can swap destinations from wherever they happen to be reading
+   * rather than scrolling back to the gate.
+   *
+   * These frames have their own palette — the pink page and the brown ticket
+   * are the intro's look, not the project's. The two data colours stay
+   * reserved for city category and do not appear here, because nothing here
+   * encodes it.
    */
   import { onMount } from 'svelte';
   import {
     loadCities,
     wordIndex,
     commonWords,
+    corpusWords,
+    cityWords,
+    mentionIndex,
     DESCRIBING_POOL,
     IATA
   } from '$lib/data.js';
   import BoardingPass from '$lib/BoardingPass.svelte';
+  import CitySelect from '$lib/CitySelect.svelte';
 
   let cities = $state([]);
   let error = $state(null);
@@ -151,6 +164,101 @@
       };
     });
   });
+
+  // --- the arrival -------------------------------------------------------
+
+  /** Mentions per word: `total` across all fifty, `per` inside one city. */
+  let mentions = $derived(
+    cities.length ? mentionIndex(cities) : { total: new Map(), per: new Map() }
+  );
+  /**
+   * Which number the cards rank and draw: total mentions across the fifty
+   * descriptions, or how many of the fifty cities use the word at all.
+   */
+  let measure = $state('mentions');
+
+  /** All 406 words more than one city uses, ranked by the chosen number. */
+  let corpus = $derived(cities.length ? corpusWords(index, mentions.total, measure) : []);
+  /** The same words, filtered to this city's — plus how often IT writes them. */
+  let ranked = $derived(
+    city ? cityWords(city, corpus, mentions.per.get(city.city), measure) : []
+  );
+
+  /** Which of the corpus's words this city uses: the rows that link across. */
+  let own = $derived(new Set(ranked.map((w) => w.word)));
+
+  /**
+   * Scales. By cities, both cards count the same thing and share one axis.
+   * By times used they do not — the left card counts one description, the
+   * right counts fifty — so each card is scaled to its own top word and the
+   * cards are labelled with what they are counting. Sharing an axis there
+   * would squash every city bar to a stub and invite reading a city's 3
+   * against the corpus's 69 as if they answered one question.
+   */
+  let barMax = $derived(corpus.length ? corpus[0][measure] : 1);
+  let cityKey = $derived(measure === 'cities' ? 'cities' : 'own');
+  let cityMax = $derived(
+    measure === 'cities'
+      ? barMax
+      : Math.max(1, ...ranked.map((w) => w.own))
+  );
+
+  /**
+   * One word column across BOTH cards, sized to the longest word on either
+   * side: every bar then starts at the same x and runs in the same track, so
+   * two equal counts are two equal lengths wherever they appear.
+   */
+  let wcol = $derived(
+    `${Math.max(9, ...corpus.map((w) => w.word.length)) + 1}ch`
+  );
+
+  /** Hovering or clicking a word lights it in BOTH cards. */
+  let lit = $state(null);
+  let cityList;    // the scroll container for this city's words
+  let corpusList;  // …and for all fifty
+
+  /**
+   * Centre a word inside one card. Scrolling the container itself rather
+   * than calling scrollIntoView, which would drag the whole page along with
+   * it and throw the reader out of the frame.
+   */
+  function reveal(box, word) {
+    const row = box?.querySelector(`[data-word="${CSS.escape(word)}"]`);
+    if (!row) return;
+    const to = Math.max(
+      0,
+      Math.min(
+        box.scrollHeight - box.clientHeight,
+        row.offsetTop - box.clientHeight / 2 + row.offsetHeight / 2
+      )
+    );
+    if (reduced) {
+      box.scrollTop = to;
+      return;
+    }
+    // Hand-animated rather than `behavior: 'smooth'`, which some engines
+    // decline to run on a nested scroller — and the travel is the point
+    // here: it shows the reader how far down the other list the word sits.
+    const from = box.scrollTop;
+    const t0 = performance.now();
+    const step = (now) => {
+      const p = Math.min(1, (now - t0) / 420);
+      const e = p < 0.5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2;
+      box.scrollTop = from + (to - from) * e;
+      if (p < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  /**
+   * Click a word in either card and the OTHER card scrolls to find it. The
+   * card you clicked in stays where it is — moving the row out from under
+   * the cursor would lose your place in the list you are reading.
+   */
+  function pick(word, from) {
+    lit = word;
+    reveal(from === 'city' ? corpusList : cityList, word);
+  }
 </script>
 
 <svelte:head>
@@ -244,7 +352,19 @@
 
       <div class="sky-text">
         <p class="line top">
-          You might think that <strong>{city ? city.city : 'your city'}</strong> is unique…
+          You might think that
+          {#if cities.length}
+            <CitySelect
+              id="dest-sky"
+              value={selected}
+              cities={sorted}
+              variant="sky"
+              onpick={(v) => (selected = v)}
+            />
+          {:else}
+            <strong>your city</strong>
+          {/if}
+          is unique…
         </p>
 
         {#if reduced}
@@ -303,6 +423,149 @@
         </div>
       </div>
     </div>
+  </section>
+
+  <!-- ================= FRAME 3 — landed ================= -->
+  <!-- Back on the pink page, out of the sky: the same words, now counted.
+       "All fifty" is the baseline rather than "the other 49" because the
+       selected city is one of the fifty and pulling it out would change the
+       numbers depending on who you picked. -->
+  <section class="arrival">
+    <div class="measure">
+      <span class="measure-label" id="rank-by">Rank by</span>
+      <div class="seg" role="group" aria-labelledby="rank-by">
+        <button
+          class:on={measure === 'mentions'}
+          aria-pressed={measure === 'mentions'}
+          onclick={() => (measure = 'mentions')}
+        >Times used</button>
+        <button
+          class:on={measure === 'cities'}
+          aria-pressed={measure === 'cities'}
+          onclick={() => (measure = 'cities')}
+        >Cities using it</button>
+      </div>
+    </div>
+
+    <div class="decks">
+      <div class="deck">
+        <div class="deck-head">
+          {#if cities.length}
+            <CitySelect
+              id="dest-ranked"
+              value={selected}
+              cities={sorted}
+              variant="paper"
+              onpick={(v) => (selected = v)}
+            />
+          {:else}
+            <h2>Your city</h2>
+          {/if}
+          <p class="kicker">Most common words</p>
+          <p class="unit">
+            {#if measure === 'cities'}
+              of the fifty cities, how many use it
+            {:else}
+              times {city ? city.city : 'this city'} writes it
+            {/if}
+          </p>
+        </div>
+
+        {#if ranked.length}
+          <ol
+            class="rank"
+            style="--wcol:{wcol}"
+            bind:this={cityList}
+            onmouseleave={() => (lit = null)}
+          >
+            {#each ranked as w, i (w.word)}
+              <li>
+                <button
+                  class="row"
+                  class:lit={lit === w.word}
+                  data-word={w.word}
+                  onclick={() => pick(w.word, 'city')}
+                  onmouseenter={() => (lit = w.word)}
+                  onfocus={() => (lit = w.word)}
+                >
+                  <span class="n">{i + 1}</span>
+                  <span class="w">{w.word}</span>
+                  <span class="bar"><span class="fill" style="width:{(w[cityKey] / cityMax) * 100}%"></span></span>
+                  <span class="c">{w[cityKey]}</span>
+                </button>
+              </li>
+            {/each}
+          </ol>
+          {#if measure === 'mentions' && cityMax === 1}
+            <p class="flat">
+              {city.city} writes every one of these exactly once, so the bars
+              are all the same length — short sites have no repeats to show.
+            </p>
+          {/if}
+        {:else}
+          <p class="empty">Pick a destination and its shared words land here.</p>
+        {/if}
+      </div>
+
+      <div class="deck">
+        <div class="deck-head">
+          <h2>All fifty</h2>
+          <p class="kicker">Most common words</p>
+          <p class="unit">
+            {#if measure === 'cities'}
+              of the fifty cities, how many use it
+            {:else}
+              times all fifty write it
+            {/if}
+          </p>
+        </div>
+        <ol
+          class="rank"
+          style="--wcol:{wcol}"
+          bind:this={corpusList}
+          onmouseleave={() => (lit = null)}
+        >
+          {#each corpus as w, i (w.word)}
+            <li>
+              <button
+                class="row"
+                class:lit={lit === w.word}
+                class:theirs={ranked.length && !own.has(w.word)}
+                data-word={w.word}
+                onclick={() => pick(w.word, 'corpus')}
+                onmouseenter={() => (lit = w.word)}
+                onfocus={() => (lit = w.word)}
+              >
+                <span class="n">{i + 1}</span>
+                <span class="w">{w.word}</span>
+                <span class="bar"><span class="fill" style="width:{(w[measure] / barMax) * 100}%"></span></span>
+                <span class="c">{w[measure]}</span>
+              </button>
+            </li>
+          {/each}
+        </ol>
+      </div>
+    </div>
+
+    <p class="legend">
+      <span>
+        {#if measure === 'mentions'}
+          The two cards count different things — one description on the left,
+          all fifty on the right — so each has its own scale and lengths only
+          compare down a card, not across. Raw counts: a short site cannot
+          repeat itself much, and most cities write most of these words once.
+        {:else}
+          Both cards count the same thing, how many of the fifty cities use
+          the word at all, and share one scale, so lengths compare across.
+        {/if}
+        Both lists scroll; click a word to jump to it in the other card. The
+        left card is the right one filtered to this city's words — faded rows
+        are the ones it doesn't use. Words only one city uses are left out,
+        because the subject is shared vocabulary.
+      </span>
+    </p>
+
+    <p class="beyond">But what lies beyond these words?</p>
   </section>
 </div>
 
@@ -561,8 +824,203 @@
     white-space: nowrap;
   }
 
+  /* ---------------- frame 3 ---------------- */
+  .arrival {
+    background: var(--paper);
+    font-family: var(--display);
+    color: var(--ink);
+    padding: 76px 16px 110px;
+  }
+
+  .measure {
+    width: min(1060px, 100%);
+    margin: 0 auto 26px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .measure-label {
+    font-size: 0.78rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    opacity: 0.65;
+  }
+  .seg {
+    display: inline-flex;
+    background: #fff;
+    border-radius: 999px;
+    padding: 3px;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+  }
+  .seg button {
+    font: inherit;
+    font-size: 0.86rem;
+    color: var(--ink);
+    background: none;
+    border: none;
+    border-radius: 999px;
+    padding: 6px 15px;
+    cursor: pointer;
+    opacity: 0.55;
+    transition: background 0.12s ease, opacity 0.12s ease;
+  }
+  .seg button.on {
+    background: rgba(0, 0, 0, 0.065);
+    opacity: 1;
+  }
+  .seg button:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  .decks {
+    width: min(1060px, 100%);
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 44px 56px;
+    align-items: start;
+  }
+
+  .deck-head {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 9px;
+    font-size: clamp(1.15rem, 2.1vw, 1.45rem);
+  }
+  .deck-head h2 {
+    margin: 0;
+    font-size: 1em;
+    font-weight: 400;
+  }
+  .kicker {
+    margin: 0;
+    font-size: 0.78rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+  }
+  /* What the bars and numbers in this card are counting. The two cards count
+     different things when the measure is times used, so each says which. */
+  .unit {
+    margin: -4px 0 0;
+    font-size: 0.78rem;
+    opacity: 0.6;
+  }
+
+  .flat {
+    margin: 10px 0 0;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    opacity: 0.65;
+  }
+
+  /* position: relative so a row's offsetTop is measured inside the card —
+     that is what `reveal` scrolls by. */
+  .rank {
+    position: relative;
+    margin: 16px 0 0;
+    padding: 20px 24px;
+    list-style: none;
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.055);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 56vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  /* The word column is as wide as the longest word on either side, so every
+     bar in both cards starts at the same x and runs in the same track. */
+  .row {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 2.4em var(--wcol) 1fr 2.6em;
+    align-items: center;
+    gap: 10px;
+    padding: 3px 6px;
+    margin: 0 -6px;
+    border: none;
+    border-radius: 7px;
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .row.lit { background: rgba(0, 0, 0, 0.055); }
+  .row:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 1px;
+  }
+  /* Words all fifty share that this city does not reach for. Still listed —
+     the ranking is the corpus's — but not part of the comparison. */
+  .row.theirs { opacity: 0.42; }
+
+  .n {
+    font-size: 0.82rem;
+    text-align: right;
+    opacity: 0.75;
+  }
+  .w {
+    font-size: 0.86rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .bar { display: block; }
+  .fill {
+    display: block;
+    height: 6px;
+    border-radius: 999px;
+    background: #d8d4d1;
+    transition: background 0.12s ease;
+  }
+  .row.lit .fill { background: #8d8279; }
+  .c {
+    font-size: 0.74rem;
+    text-align: right;
+    opacity: 0.55;
+  }
+
+  .empty {
+    margin: 16px 0 0;
+    font-size: 0.92rem;
+    opacity: 0.65;
+  }
+
+  /* The outer block holds the deck's left edge; the span keeps the measure
+     readable without pulling the text into the middle of the page. */
+  .legend {
+    width: min(1060px, 100%);
+    margin: 22px auto 0;
+    font-size: 0.8rem;
+    line-height: 1.55;
+    opacity: 0.7;
+  }
+  .legend span {
+    display: block;
+    max-width: 74ch;
+  }
+
+  .beyond {
+    width: min(1060px, 100%);
+    margin: 104px auto 0;
+    font-size: clamp(1.7rem, 4.4vw, 2.7rem);
+    font-weight: 400;
+    letter-spacing: -0.015em;
+  }
+
+  @media (max-width: 760px) {
+    .decks { grid-template-columns: 1fr; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .pill,
+    .fill,
+    .seg button,
     .line.bottom { transition: none; }
   }
 </style>
