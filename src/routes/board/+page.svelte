@@ -29,6 +29,9 @@
     corpusWords,
     cityWords,
     mentionIndex,
+    descriptionIndex,
+    cloudWords,
+    WORD_TYPES,
     DESCRIBING_POOL,
     IATA
   } from '$lib/data.js';
@@ -259,6 +262,58 @@
     lit = word;
     reveal(from === 'city' ? corpusList : cityList, word);
   }
+
+  // --- what is left ------------------------------------------------------
+
+  /** The whole description pool: counts, document frequencies, tags, scores. */
+  let cloudIndex = $derived(
+    cities.length
+      ? descriptionIndex(cities)
+      : { perCity: new Map(), docFreq: new Map(), typesOf: new Map(), scores: new Map() }
+  );
+
+  /**
+   * Keep words at most this many OTHER cities also write. Two is the opening
+   * position because it is the one that answers the heading: strip what the
+   * corpus shares and the place itself is what remains.
+   */
+  let maxOthers = $state(2);
+  /** Which word types survive. All on, so the first view hides nothing. */
+  let keepTypes = $state(new Set(WORD_TYPES.map((t) => t.id)));
+  /** A cloud past this many words is a grey rectangle. */
+  const CLOUD_CAP = 100;
+
+  let cloud = $derived(
+    cloudWords(city, cloudIndex, { maxOthers, types: keepTypes, limit: CLOUD_CAP })
+  );
+  /** Biggest word in the cloud, for the size ramp. */
+  let cloudMax = $derived(Math.max(1, ...cloud.words.map((w) => w.count)));
+  /** Hovering a word spells out what its size means, in words. */
+  let cloudLit = $state(null);
+
+  let score = $derived(city ? cloudIndex.scores.get(city.city) : null);
+
+  function toggleType(id) {
+    const next = new Set(keepTypes);
+    // Never let the last one go: an empty cloud reads as a broken view
+    // rather than as a filter the reader set.
+    if (next.has(id) && next.size > 1) next.delete(id);
+    else next.add(id);
+    keepTypes = next;
+  }
+
+  function resetCloud() {
+    maxOthers = 2;
+    keepTypes = new Set(WORD_TYPES.map((t) => t.id));
+  }
+
+  /**
+   * 1 -> 15px, the city's most-written word -> 52px, on a square root so a
+   * word written ten times does not swamp ten words written once. Size is
+   * the only channel here: colour is reserved for city category across the
+   * project, and nothing in this cloud encodes it.
+   */
+  const cloudSize = (n) => 15 + Math.sqrt((n - 1) / Math.max(1, cloudMax - 1)) * 37;
 </script>
 
 <svelte:head>
@@ -275,6 +330,10 @@
   <!-- ================= FRAME 1 — the gate ================= -->
   <section class="gate">
     <h1>Where do you want to go today?</h1>
+    <p class="choose-from">
+      Choose from {cities.length || 50} destinations — half of them famous,
+      half of them not.
+    </p>
 
     <div class="controls">
       <div class="pill select-pill" class:chosen={!!city}>
@@ -567,6 +626,122 @@
 
     <p class="beyond">But what lies beyond these words?</p>
   </section>
+
+  <!-- ================= FRAME 4 — what is left ================= -->
+  <!-- The inverse of frame 3. That one ranked the words everybody shares;
+       this one throws them away and shows what the city has left. The pool
+       is the whole description, not the tagged vocabulary, because the words
+       a place actually owns are its landmarks and its geography — and those
+       are the ones the pipeline never tagged. -->
+  <section class="leftover">
+    <h2 class="left-head">Let’s filter the common ones out.<br />What’s left?</h2>
+
+    <div class="filters">
+      <div class="filter">
+        <label class="filter-label" for="others">
+          Found in at most
+          <strong>{maxOthers}</strong>
+          other {maxOthers === 1 ? 'city' : 'cities'}
+        </label>
+        <input
+          id="others"
+          type="range"
+          min="0"
+          max="49"
+          bind:value={maxOthers}
+          disabled={!city}
+        />
+        <p class="scale" aria-hidden="true"><span>only this one</span><span>all 50</span></p>
+      </div>
+
+      <div class="filter types">
+        <span class="filter-label" id="types-label">Word type</span>
+        <div class="chips" role="group" aria-labelledby="types-label">
+          {#each WORD_TYPES as t (t.id)}
+            <button
+              class="chip"
+              class:on={keepTypes.has(t.id)}
+              aria-pressed={keepTypes.has(t.id)}
+              onclick={() => toggleType(t.id)}
+              disabled={!city}
+            >{t.label}</button>
+          {/each}
+        </div>
+      </div>
+
+      <button class="reset" onclick={resetCloud} disabled={!city}>Reset</button>
+    </div>
+
+    {#if !city}
+      <p class="empty cloud-empty">Pick a destination and what only it says lands here.</p>
+    {:else if cloud.words.length === 0}
+      <p class="empty cloud-empty">
+        No word of {city.city}’s survives both filters. Widen one.
+      </p>
+    {:else}
+      <p class="cloud-intro">
+        Every word {city.city}’s tourism board wrote that at most {maxOthers} other
+        {maxOthers === 1 ? 'city' : 'cities'} wrote too.
+        <strong>Bigger means {city.city} writes it more often</strong> — size is the
+        only thing varying, and a word written once is at the smallest size.
+      </p>
+
+      <div class="cloud-box" onmouseleave={() => (cloudLit = null)}>
+        <ul class="cloud-words">
+          {#each cloud.words as w (w.word)}
+            <li>
+              <button
+                style="font-size:{cloudSize(w.count)}px"
+                class:dim={cloudLit && cloudLit !== w.word}
+                onmouseenter={() => (cloudLit = w.word)}
+                onfocus={() => (cloudLit = w.word)}
+                onclick={() => (cloudLit = cloudLit === w.word ? null : w.word)}
+              >
+                {w.word}
+                <span class="sr-only">
+                  — written {w.count} {w.count === 1 ? 'time' : 'times'},
+                  found in {w.others} other {w.others === 1 ? 'city' : 'cities'}
+                </span>
+              </button>
+            </li>
+          {/each}
+        </ul>
+      </div>
+
+      <p class="readout" aria-live="polite">
+        {#if cloudLit}
+          {@const w = cloud.words.find((x) => x.word === cloudLit)}
+          <strong>{w.word}</strong> — {city.city} writes it {w.count}
+          {w.count === 1 ? 'time' : 'times'}; {w.others === 0
+            ? 'no other city uses it at all'
+            : `${w.others} other ${w.others === 1 ? 'city' : 'cities'} use it too`}.
+        {:else}
+          Hover a word for its counts.
+          {#if cloud.matched > cloud.words.length}
+            Showing the {cloud.words.length} most-written of {cloud.matched} — tighten
+            a filter to see the rest.
+          {:else}
+            {cloud.matched} {cloud.matched === 1 ? 'word' : 'words'} pass the filters.
+          {/if}
+        {/if}
+      </p>
+
+      <p class="uniqueness">
+        <strong>{Math.round(score.share * 100)}%</strong> of the distinct words
+        {city.city} writes, no other city writes at all —
+        {score.unique} of {score.total}. That is the
+        <strong>{score.rank}{['th','st','nd','rd'][score.rank % 10 > 3 || (score.rank % 100 >= 11 && score.rank % 100 <= 13) ? 0 : score.rank % 10]}</strong>
+        highest share of the fifty.
+      </p>
+      <p class="uniqueness-note">
+        A share of words, not of meaning — and not the similarity score in the
+        methodology, which has no percentage reading. It also rises with how
+        long the scrape was (r&nbsp;=&nbsp;0.49): a longer site has more room
+        for a word nobody else reached for, so read it beside the word count,
+        not on its own. {city.city}’s description runs {city.wordCount} words.
+      </p>
+    {/if}
+  </section>
 </div>
 
 <style>
@@ -829,7 +1004,7 @@
     background: var(--paper);
     font-family: var(--display);
     color: var(--ink);
-    padding: 76px 16px 110px;
+    padding: 76px 16px 56px;
   }
 
   .measure {
@@ -1013,8 +1188,167 @@
     letter-spacing: -0.015em;
   }
 
+  /* ---------------- frame 4 ---------------- */
+  .leftover {
+    background: var(--paper);
+    font-family: var(--display);
+    color: var(--ink);
+    padding: 0 16px 120px;
+  }
+  .leftover > * {
+    width: min(1060px, 100%);
+    margin-inline: auto;
+  }
+
+  .left-head {
+    margin: 0 0 30px;
+    font-size: clamp(1.7rem, 4.4vw, 2.7rem);
+    font-weight: 400;
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+    text-align: center;
+  }
+
+  /* One raised bar holding both filters, the way the gate's pills are raised
+     off the page: it reads as the control surface for the cloud below it. */
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 26px 34px;
+    padding: 18px 26px 20px;
+    background: #fff;
+    border-radius: 22px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.055);
+  }
+  .filter { display: flex; flex-direction: column; gap: 7px; }
+  .filter:first-child { flex: 1 1 260px; }
+  .filter-label {
+    font-size: 0.72rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    opacity: 0.62;
+  }
+  .filter-label strong { font-weight: 700; opacity: 1; }
+  .filter input[type='range'] { width: 100%; accent-color: var(--ticket); }
+  .scale {
+    display: flex;
+    justify-content: space-between;
+    margin: -3px 0 0;
+    font-size: 0.7rem;
+    opacity: 0.45;
+  }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    padding: 4px 12px 5px;
+    border: 1px solid rgba(0, 0, 0, 0.16);
+    border-radius: 999px;
+    background: none;
+    font: inherit;
+    font-size: 0.82rem;
+    color: inherit;
+    opacity: 0.45;
+    cursor: pointer;
+    transition: opacity 0.12s ease, background 0.12s ease;
+  }
+  .chip.on { background: rgba(0, 0, 0, 0.065); opacity: 1; }
+  .chip:disabled { cursor: default; }
+
+  .reset {
+    margin-left: auto;
+    padding: 4px 12px 5px;
+    border: none;
+    border-radius: 999px;
+    background: none;
+    font: inherit;
+    font-size: 0.82rem;
+    color: inherit;
+    opacity: 0.5;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .cloud-intro,
+  .readout,
+  .uniqueness-note {
+    font-size: 0.8rem;
+    line-height: 1.55;
+    opacity: 0.7;
+  }
+  /* Flush with the card below rather than centred on it: a centred block of
+     small text beside a full-width card reads as a stray caption. */
+  .leftover .cloud-intro { margin: 18px auto 0 0; max-width: 74ch; }
+  .leftover .readout { margin: 14px auto 0 0; }
+  .cloud-empty { margin-top: 26px; }
+
+  .cloud-box {
+    margin-top: 14px;
+    padding: 30px 28px 34px;
+    background: #fff;
+    border-radius: 22px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.055);
+  }
+
+  /* A wrapped flow rather than the scattered, overlapping layout a spiral
+     cloud gives: words that cross each other cannot be read, and reading
+     them is the whole point. Order is most-written first, so the eye finds
+     the big ones without hunting. */
+  .cloud-words {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: center;
+    gap: 2px 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .cloud-words button {
+    padding: 0 2px;
+    border: none;
+    background: none;
+    font: inherit;
+    font-weight: 400;
+    line-height: 1.14;
+    color: var(--ink);
+    cursor: pointer;
+    transition: opacity 0.12s ease;
+  }
+  .cloud-words button.dim { opacity: 0.26; }
+  .cloud-words button:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  .readout { margin: 14px auto 0; max-width: 74ch; min-height: 2.5em; }
+  .readout strong { opacity: 1; }
+
+  .uniqueness {
+    margin: 44px auto 0;
+    max-width: 30ch;
+    font-size: clamp(1.4rem, 3.2vw, 2.1rem);
+    font-weight: 400;
+    line-height: 1.26;
+    letter-spacing: -0.012em;
+    text-align: center;
+  }
+  .uniqueness-note { margin: 14px auto 0; max-width: 68ch; text-align: center; }
+
+  .choose-from {
+    margin: -16px 0 0;
+    font-family: var(--display);
+    font-size: 0.95rem;
+    color: var(--ink);
+    opacity: 0.6;
+    text-align: center;
+  }
+
   @media (max-width: 760px) {
     .decks { grid-template-columns: 1fr; }
+    .reset { margin-left: 0; }
   }
 
   @media (prefers-reduced-motion: reduce) {

@@ -551,8 +551,12 @@ export function commonWords(city, index, n = 14) {
     .slice(0, n);
 }
 
-/** Words as the descriptions write them: letters, digits and apostrophes. */
-const TOKENS = /[a-z0-9\u00e0-\u00ff']+/g;
+/**
+ * Words as the descriptions write them: letters, digits and apostrophes.
+ * Both apostrophes — the sites use the curly one, and leaving it out split
+ * "isn’t" into a bare "isn" that then showed up in the clouds as a word.
+ */
+const TOKENS = /[a-z0-9\u00e0-\u00ff'\u2019]+/g;
 
 function tokenCounts(text) {
   const counts = new Map();
@@ -659,4 +663,140 @@ export function cityWords(city, corpus, counts, by = 'mentions') {
   return rows.sort(
     (a, b) => b.own - a.own || b.mentions - a.mentions || a.word.localeCompare(b.word)
   );
+}
+
+// --- the word cloud: what is left once the shared words are gone ---------
+
+/**
+ * Function words and the thinnest connective tissue. Deliberately short: the
+ * subject of the cloud is what a tourism board chose to say, so anything that
+ * carries a choice — "best", "hidden", "must" — stays in. Only words that
+ * every English sentence needs regardless of its subject are removed.
+ */
+const STOPWORDS = new Set(
+  `a an the and or but if then than that this these those with without within
+   from into onto to of in on at by for as is are was were be been being am
+   do does did doing have has had having will would shall should can could
+   may might must not no nor so such own same other another more some any
+   each every all both few much very too just only now here there when where
+   why how what which who whom whose it its they them their theirs you your
+   yours we us our ours i me my mine he him his she her hers up down out off
+   over under again further once about above below between through during
+   before after while because until against among around along across behind
+   beyond near also however though thus hence via per etc
+   isn't aren't wasn't weren't don't doesn't didn't won't wouldn't
+   can't couldn't shouldn't it's that's there's here's what's who's
+   you're you'll you've we're we'll we've they're they'll they've
+   i'm i've let's`
+    .split(/\s+/)
+    .flatMap((w) => (w.includes("'") ? [w, w.replace(/'/g, '\u2019')] : [w]))
+);
+
+/**
+ * The four vocabulary columns the pipeline tagged, as word types a reader can
+ * filter by. A word can carry more than one tag — "grand" is both an
+ * adjective and a noun modifier — so these are sets, not a single label.
+ *
+ * `other` is not a column: it is everything the pipeline did not tag, which
+ * is most of the text. Place names, landmarks and ordinary nouns live there,
+ * and they are the words a city is likeliest to own outright, so the cloud
+ * would be pointless without them.
+ */
+export const WORD_TYPES = [
+  { id: 'adjective', label: 'Adjectives', col: 'adjectives' },
+  { id: 'modifier', label: 'Noun modifiers', col: 'nounModifiers' },
+  { id: 'noun', label: 'Charged nouns', col: 'highSentimentNouns' },
+  { id: 'superlative', label: 'Superlatives', col: 'superlatives' },
+  { id: 'other', label: 'Everything else', col: null }
+];
+
+/**
+ * Everything the cloud needs, built once over all fifty descriptions.
+ *
+ *   `perCity`  city -> Map(word -> times that city writes it)
+ *   `docFreq`  word -> how many of the fifty descriptions contain it
+ *   `typesOf`  word -> Set of WORD_TYPES ids
+ *   `scores`   city -> { unique, total, share, rank }
+ *
+ * The pool is the description itself minus stopwords, bare numbers, words
+ * under three letters, and the city's own name and country — a city naming
+ * itself is not a distinctive word, it is a header. Tags are assigned
+ * corpus-wide, so "vibrant" is an adjective in every city's cloud and not
+ * only in the ones whose row happened to list it.
+ */
+export function descriptionIndex(cities) {
+  const typesOf = new Map();
+  for (const c of cities) {
+    for (const { id, col } of WORD_TYPES) {
+      if (!col) continue;
+      for (const raw of c[col] ?? []) {
+        const w = raw.trim().toLowerCase();
+        if (!w) continue;
+        if (!typesOf.has(w)) typesOf.set(w, new Set());
+        typesOf.get(w).add(id);
+      }
+    }
+  }
+
+  const perCity = new Map();
+  const docFreq = new Map();
+
+  for (const c of cities) {
+    const own = new Set(`${c.city} ${c.country}`.toLowerCase().match(TOKENS) ?? []);
+    const counts = new Map();
+    for (const t of (c.description ?? '').toLowerCase().match(TOKENS) ?? []) {
+      // "reykjavík’s" is the same header as "reykjavík", so the possessive
+      // goes with the name it is built from.
+      const stem = t.replace(/['’]s$/, '');
+      if (t.length < 3 || STOPWORDS.has(t) || own.has(t) || own.has(stem)) continue;
+      if (/^[0-9'’]+$/.test(t)) continue;
+      counts.set(t, (counts.get(t) ?? 0) + 1);
+    }
+    perCity.set(c.city, counts);
+    for (const w of counts.keys()) docFreq.set(w, (docFreq.get(w) ?? 0) + 1);
+  }
+
+  // Uniqueness: of the distinct words a city writes, what share does no other
+  // city write at all. A share of words, not of meaning — and emphatically
+  // not the cosine similarity in METHODOLOGY.md, which has no percentage
+  // reading. Computed over the same pool the cloud draws, so sliding the
+  // threshold to "no other cities" leaves exactly the words it counts.
+  const scores = new Map();
+  for (const c of cities) {
+    const counts = perCity.get(c.city);
+    const total = counts.size;
+    let unique = 0;
+    for (const w of counts.keys()) if (docFreq.get(w) === 1) unique += 1;
+    scores.set(c.city, { unique, total, share: total ? unique / total : 0, rank: 0 });
+  }
+  [...scores.entries()]
+    .sort((a, b) => b[1].share - a[1].share)
+    .forEach(([, s], i) => (s.rank = i + 1));
+
+  return { perCity, docFreq, typesOf, scores };
+}
+
+/**
+ * One city's cloud: its own words, cut down by the two filters.
+ *
+ * `maxOthers` keeps words at most that many OTHER cities also write, so 0 is
+ * "only this city" and 49 is "keep everything". `types` is the set of
+ * WORD_TYPES ids to keep. `limit` caps what is drawn — a 600-word cloud is a
+ * grey rectangle, so the most-written survive and the view says how many were
+ * left out.
+ */
+export function cloudWords(city, idx, { maxOthers = 2, types, limit = 100 } = {}) {
+  if (!city) return { words: [], matched: 0 };
+  const counts = idx.perCity.get(city.city) ?? new Map();
+  const out = [];
+  for (const [word, count] of counts) {
+    const others = (idx.docFreq.get(word) ?? 1) - 1;
+    if (others > maxOthers) continue;
+    const tags = idx.typesOf.get(word);
+    const ids = tags && tags.size ? [...tags] : ['other'];
+    if (types && !ids.some((t) => types.has(t))) continue;
+    out.push({ word, count, others, types: ids });
+  }
+  out.sort((a, b) => b.count - a.count || a.others - b.others || a.word.localeCompare(b.word));
+  return { words: limit > 0 ? out.slice(0, limit) : out, matched: out.length };
 }
