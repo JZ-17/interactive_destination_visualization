@@ -777,26 +777,65 @@ export function descriptionIndex(cities) {
 }
 
 /**
- * One city's cloud: its own words, cut down by the two filters.
+ * Every word one city writes, in a fixed scattered order.
  *
- * `maxOthers` keeps words at most that many OTHER cities also write, so 0 is
- * "only this city" and 49 is "keep everything". `types` is the set of
- * WORD_TYPES ids to keep. `limit` caps what is drawn — a 600-word cloud is a
- * grey rectangle, so the most-written survive and the view says how many were
- * left out.
+ * The field never changes once a city is picked: the filters below only
+ * light words up and dim them down, so a word must stay exactly where it
+ * was or the reader loses the one they were watching. Which means the order
+ * is set here, once, and the size ramp is measured over the whole field
+ * rather than over whatever currently survives.
+ *
+ * Order is a hash of the word, not its count. Scattering the big ones
+ * through the small ones is the point — ranked by size the cloud is just a
+ * list with a bad left margin, and the thing worth watching is common words
+ * going out all over the field at once, like lights in a building.
  */
-export function cloudWords(city, idx, { maxOthers = 2, types, limit = 100 } = {}) {
-  if (!city) return { words: [], matched: 0 };
+export function cloudField(city, idx) {
+  if (!city) return [];
   const counts = idx.perCity.get(city.city) ?? new Map();
   const out = [];
   for (const [word, count] of counts) {
-    const others = (idx.docFreq.get(word) ?? 1) - 1;
-    if (others > maxOthers) continue;
     const tags = idx.typesOf.get(word);
-    const ids = tags && tags.size ? [...tags] : ['other'];
-    if (types && !ids.some((t) => types.has(t))) continue;
-    out.push({ word, count, others, types: ids });
+    out.push({
+      word,
+      count,
+      others: (idx.docFreq.get(word) ?? 1) - 1,
+      types: tags && tags.size ? [...tags] : ['other'],
+      // Deterministic per word, so the scatter holds across filter changes
+      // and across reloads — and so two cities sharing a word put it in the
+      // same relative place, which makes switching destinations read as the
+      // same cloud rearranging rather than a whole new one.
+      seed: hash01(word)
+    });
   }
-  out.sort((a, b) => b.count - a.count || a.others - b.others || a.word.localeCompare(b.word));
-  return { words: limit > 0 ? out.slice(0, limit) : out, matched: out.length };
+  return out.sort((a, b) => a.seed - b.seed);
+}
+
+/** A stable 0..1 from a string. FNV-1a, which is small and spreads well. */
+function hash01(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return ((h >>> 0) % 100000) / 100000;
+}
+
+/**
+ * Which words in the field are still lit.
+ *
+ * `maxOthers` keeps words at most that many OTHER cities also write, so 0 is
+ * "only this city" and 49 is "everything stays lit". `types` is the set of
+ * WORD_TYPES ids to keep. Nothing is removed either way — see the note in
+ * the view about why this one section highlights where the rest of the
+ * project filters.
+ */
+export function litWords(field, { maxOthers = 2, types } = {}) {
+  const lit = new Set();
+  for (const w of field) {
+    if (w.others > maxOthers) continue;
+    if (types && !w.types.some((t) => types.has(t))) continue;
+    lit.add(w.word);
+  }
+  return lit;
 }

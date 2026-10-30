@@ -30,7 +30,8 @@
     cityWords,
     mentionIndex,
     descriptionIndex,
-    cloudWords,
+    cloudField,
+    litWords,
     WORD_TYPES,
     DESCRIBING_POOL,
     IATA
@@ -278,16 +279,20 @@
    * corpus shares and the place itself is what remains.
    */
   let maxOthers = $state(2);
-  /** Which word types survive. All on, so the first view hides nothing. */
+  /** Which word types stay lit. All on, so the first view dims nothing. */
   let keepTypes = $state(new Set(WORD_TYPES.map((t) => t.id)));
-  /** A cloud past this many words is a grey rectangle. */
-  const CLOUD_CAP = 100;
 
-  let cloud = $derived(
-    cloudWords(city, cloudIndex, { maxOthers, types: keepTypes, limit: CLOUD_CAP })
-  );
-  /** Biggest word in the cloud, for the size ramp. */
-  let cloudMax = $derived(Math.max(1, ...cloud.words.map((w) => w.count)));
+  /**
+   * The whole description, every word of it, in a fixed scattered order.
+   * Depends on the city alone — the filters never touch it, so nothing
+   * moves while the slider is being dragged.
+   */
+  let field = $derived(cloudField(city, cloudIndex));
+  /** …and which of those words the filters leave burning. */
+  let stillLit = $derived(litWords(field, { maxOthers, types: keepTypes }));
+
+  /** Biggest word in the field, for the size ramp. Also filter-independent. */
+  let cloudMax = $derived(Math.max(1, ...field.map((w) => w.count)));
   /** Hovering a word spells out what its size means, in words. */
   let cloudLit = $state(null);
 
@@ -295,9 +300,10 @@
 
   function toggleType(id) {
     const next = new Set(keepTypes);
-    // Never let the last one go: an empty cloud reads as a broken view
-    // rather than as a filter the reader set.
-    if (next.has(id) && next.size > 1) next.delete(id);
+    // Turning everything off is allowed here. Nothing is removed, so the
+    // worst it can do is put the lights out, and the readout says how to
+    // bring them back.
+    if (next.has(id)) next.delete(id);
     else next.add(id);
     keepTypes = next;
   }
@@ -308,12 +314,43 @@
   }
 
   /**
-   * 1 -> 15px, the city's most-written word -> 52px, on a square root so a
-   * word written ten times does not swamp ten words written once. Size is
-   * the only channel here: colour is reserved for city category across the
-   * project, and nothing in this cloud encodes it.
+   * Type shrinks as the field grows, or Paris — 618 words against Bangkok's
+   * 72 — would run four screens deep and stop being one picture. It still
+   * runs taller, which is right: the board really did write more. Only the
+   * ramp moves, so a word's size still means the same thing within a cloud.
    */
-  const cloudSize = (n) => 15 + Math.sqrt((n - 1) / Math.max(1, cloudMax - 1)) * 37;
+  let zoom = $derived(Math.min(1, Math.max(0.55, Math.sqrt(170 / Math.max(1, field.length)))));
+
+  /**
+   * A word written once sits at 12px and the city's most-written word tops
+   * the ramp, on a square root so a word written ten times does not swamp
+   * ten words written once. Only the TOP of the ramp shrinks on a big
+   * cloud: the floor stays at 12px, because a word too small to read is
+   * not in the picture at all, whatever the layout says.
+   *
+   * Size is the only channel here. Colour is reserved for city category
+   * across the project, and nothing in this cloud encodes it.
+   */
+  const cloudSize = (n) =>
+    12 + Math.sqrt((n - 1) / Math.max(1, cloudMax - 1)) * 38 * zoom;
+
+  /**
+   * The scatter. Each word takes a small nudge off the baseline and a slight
+   * tilt, both deterministic from its own seed, so the block reads as a
+   * drift of words rather than justified prose. Kept small on purpose —
+   * past about three degrees a word stops being easy to read, and these are
+   * meant to be read.
+   */
+  const drift = (w) =>
+    `translateY(${(w.seed - 0.5) * 16}px) rotate(${(((w.seed * 7) % 1) - 0.5) * 5}deg)`;
+
+  /**
+   * How long a word waits before it fades. Deliberately NOT the seed the
+   * field is sorted by — that would sweep the cloud in reading order, like
+   * a wipe. A second, unrelated number off the same word scatters the delay
+   * instead, so the lights go out all over the cloud at once.
+   */
+  const delay = (w) => (reduced ? 0 : (((w.seed * 10007) % 1) * 0.45).toFixed(3));
 </script>
 
 <svelte:head>
@@ -673,25 +710,24 @@
     </div>
 
     {#if !city}
-      <p class="empty cloud-empty">Pick a destination and what only it says lands here.</p>
-    {:else if cloud.words.length === 0}
-      <p class="empty cloud-empty">
-        No word of {city.city}’s survives both filters. Widen one.
-      </p>
+      <p class="empty cloud-empty">Pick a destination and its whole vocabulary lands here.</p>
     {:else}
       <p class="cloud-intro">
-        Every word {city.city}’s tourism board wrote that at most {maxOthers} other
-        {maxOthers === 1 ? 'city' : 'cities'} wrote too.
-        <strong>Bigger means {city.city} writes it more often</strong> — size is the
-        only thing varying, and a word written once is at the smallest size.
+        Every word {city.city}’s tourism board wrote, all {field.length} of them.
+        <strong>Bigger means it writes that word more often.</strong>
+        Turn the dial down and the words the rest of the world also uses go
+        out, one batch at a time. Whatever is still lit at the end belongs to
+        {city.city}.
       </p>
 
       <div class="cloud-box" onmouseleave={() => (cloudLit = null)}>
         <ul class="cloud-words">
-          {#each cloud.words as w (w.word)}
-            <li>
+          {#each field as w (w.word)}
+            <li style="transform:{reduced ? 'none' : drift(w)}">
               <button
-                style="font-size:{cloudSize(w.count)}px"
+                style="font-size:{cloudSize(w.count)}px;
+                       transition-delay:{delay(w)}s"
+                class:out={!stillLit.has(w.word)}
                 class:dim={cloudLit && cloudLit !== w.word}
                 onmouseenter={() => (cloudLit = w.word)}
                 onfocus={() => (cloudLit = w.word)}
@@ -700,7 +736,8 @@
                 {w.word}
                 <span class="sr-only">
                   — written {w.count} {w.count === 1 ? 'time' : 'times'},
-                  found in {w.others} other {w.others === 1 ? 'city' : 'cities'}
+                  found in {w.others} other {w.others === 1 ? 'city' : 'cities'};
+                  {stillLit.has(w.word) ? 'lit' : 'dimmed by the filters'}
                 </span>
               </button>
             </li>
@@ -710,19 +747,16 @@
 
       <p class="readout" aria-live="polite">
         {#if cloudLit}
-          {@const w = cloud.words.find((x) => x.word === cloudLit)}
+          {@const w = field.find((x) => x.word === cloudLit)}
           <strong>{w.word}</strong> — {city.city} writes it {w.count}
           {w.count === 1 ? 'time' : 'times'}; {w.others === 0
-            ? 'no other city uses it at all'
-            : `${w.others} other ${w.others === 1 ? 'city' : 'cities'} use it too`}.
+            ? 'and nobody else says it at all'
+            : `and ${w.others} other ${w.others === 1 ? 'city' : 'cities'} reach for it too`}.
+        {:else if stillLit.size === 0}
+          Everything is out. Nudge a filter back and the lights come on.
         {:else}
-          Hover a word for its counts.
-          {#if cloud.matched > cloud.words.length}
-            Showing the {cloud.words.length} most-written of {cloud.matched} — tighten
-            a filter to see the rest.
-          {:else}
-            {cloud.matched} {cloud.matched === 1 ? 'word' : 'words'} pass the filters.
-          {/if}
+          <strong>{stillLit.size}</strong> of {field.length} still lit. Hover one
+          for its counts; the faint ones are still there, just not making the cut.
         {/if}
       </p>
 
@@ -1291,18 +1325,19 @@
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.055);
   }
 
-  /* A wrapped flow rather than the scattered, overlapping layout a spiral
-     cloud gives: words that cross each other cannot be read, and reading
-     them is the whole point. Order is most-written first, so the eye finds
-     the big ones without hunting. */
+  /* Scattered, but not overlapping. Big and small words are interleaved by
+     the hash order, and each one is nudged off the baseline and tilted a
+     degree or two, so the block drifts. Words that cross each other cannot
+     be read, and reading them is the whole point, so the drift stops well
+     short of a collision. */
   .cloud-words {
     display: flex;
     flex-wrap: wrap;
-    align-items: baseline;
+    align-items: center;
     justify-content: center;
-    gap: 2px 16px;
+    gap: 6px 15px;
     margin: 0;
-    padding: 0;
+    padding: 10px 0;
     list-style: none;
   }
   .cloud-words button {
@@ -1311,12 +1346,24 @@
     background: none;
     font: inherit;
     font-weight: 400;
-    line-height: 1.14;
+    line-height: 1.1;
     color: var(--ink);
     cursor: pointer;
-    transition: opacity 0.12s ease;
+    /* Slow enough to watch. Each word carries its own delay, set inline
+       from the same seed as its position, so a filter change sweeps across
+       the cloud instead of snapping it all at once. */
+    transition: opacity 0.5s ease;
   }
   .cloud-words button.dim { opacity: 0.26; }
+
+  /* Dimmed by a filter rather than removed by one. Everywhere else in the
+     project filtering means the thing leaves and the totals recompute; here
+     it means the word fades and stays put, because the whole point of this
+     frame is WATCHING the common words go out. Nothing downstream reads
+     from it, so no aggregate is being quietly misreported. */
+  .cloud-words button.out { opacity: 0.085; }
+  .cloud-words button.out:hover,
+  .cloud-words button.out:focus-visible { opacity: 0.4; }
   .cloud-words button:focus-visible {
     outline: 2px solid var(--ink);
     outline-offset: 2px;
