@@ -726,12 +726,14 @@
       <div class="cloud-box" onmouseleave={() => (cloudLit = null)}>
         <ul class="cloud-words">
           {#each field as w (w.word)}
-            <li style="transform:{reduced ? 'none' : drift(w)}">
+            <li
+              style="transform:{reduced ? 'none' : drift(w)}"
+              class:dim={cloudLit && cloudLit !== w.word}
+            >
               <button
                 style="font-size:{cloudSize(w.count)}px;
                        transition-delay:{delay(w)}s"
                 class:out={!stillLit.has(w.word)}
-                class:dim={cloudLit && cloudLit !== w.word}
                 onmouseenter={() => (cloudLit = w.word)}
                 onfocus={() => (cloudLit = w.word)}
                 onclick={() => (cloudLit = cloudLit === w.word ? null : w.word)}
@@ -1384,7 +1386,11 @@
        the cloud instead of snapping it all at once. */
     transition: opacity 0.5s ease;
   }
-  .cloud-words button.dim { opacity: 0.26; }
+  /* Hover dim sits on the LI, filter dim on the button inside it, so the
+     two can have their own timing on the same pixel: the filter's slow
+     staggered fade is worth watching, but a hover that takes half a second
+     to answer just feels broken. This one is instant, both ways. */
+  .cloud-words li.dim { opacity: 0.26; }
 
   /* Dimmed by a filter rather than removed by one. Everywhere else in the
      project filtering means the thing leaves and the totals recompute; here
