@@ -38,6 +38,7 @@
   } from '$lib/data.js';
   import BoardingPass from '$lib/BoardingPass.svelte';
   import CitySelect from '$lib/CitySelect.svelte';
+  import { PLANE } from '$lib/ticketArt.js';
 
   let cities = $state([]);
   let error = $state(null);
@@ -218,8 +219,8 @@
 
   /** Hovering or clicking a word lights it in BOTH cards. */
   let lit = $state(null);
-  let cityList;    // the scroll container for this city's words
-  let corpusList;  // …and for all fifty
+  let cityList = $state();    // the scroll container for this city's words
+  let corpusList = $state();  // …and for all fifty
 
   /**
    * Centre a word inside one card. Scrolling the container itself rather
@@ -307,6 +308,22 @@
     else next.add(id);
     keepTypes = next;
   }
+
+  /**
+   * The slider's handle is the ticket's own jet, the same path the boarding
+   * pass draws between FROM and TO — imported rather than copied, so there
+   * is one plane in this project and it cannot drift.
+   *
+   * It has to go through a data URI because a range input's thumb is a
+   * pseudo-element and can only take a background image, not a child SVG.
+   * The artboard numbers are the jet's own bounds inside the 671x297
+   * ticket; `encodeURIComponent` is what makes the `#` in the colour safe
+   * to sit inside a url().
+   */
+  const planeThumb = `url("data:image/svg+xml,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="188 107 38 37">` +
+      `<path d="${PLANE}" fill="#7b6a60"/></svg>`
+  )}")`;
 
   function resetCloud() {
     maxOthers = 2;
@@ -682,9 +699,11 @@
         </label>
         <input
           id="others"
+          class="dial"
           type="range"
           min="0"
           max="49"
+          style="--plane:{planeThumb}"
           bind:value={maxOthers}
           disabled={!city}
         />
@@ -723,7 +742,12 @@
         {city.city}.
       </p>
 
-      <div class="cloud-box" onmouseleave={() => (cloudLit = null)}>
+      <div
+        class="cloud-box"
+        role="group"
+        aria-label="Every word {city.city} writes"
+        onmouseleave={() => (cloudLit = null)}
+      >
         <ul class="cloud-words">
           {#each field as w (w.word)}
             <li
@@ -1281,7 +1305,49 @@
     opacity: 0.62;
   }
   .filter-label strong { font-weight: 700; opacity: 1; }
-  .filter input[type='range'] { width: 100%; accent-color: var(--ticket); }
+  /* The handle is the ticket's jet, so the native thumb goes and a
+     background image takes its place. Dropping `appearance` also drops the
+     default track, which is why both halves are drawn here, twice: WebKit
+     and Gecko expose them under names neither engine understands from the
+     other, and they cannot be combined into one rule. */
+  .dial {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 26px;
+    background: none;
+    cursor: pointer;
+  }
+  .dial:disabled { cursor: default; opacity: 0.4; }
+  .dial:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; border-radius: 4px; }
+
+  .dial::-webkit-slider-runnable-track {
+    height: 3px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.18);
+  }
+  .dial::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 30px;
+    height: 26px;
+    /* Half the track minus half the thumb, so the jet rides the line. */
+    margin-top: -11.5px;
+    border: none;
+    background: var(--plane) center / contain no-repeat;
+  }
+
+  .dial::-moz-range-track {
+    height: 3px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.18);
+  }
+  .dial::-moz-range-thumb {
+    width: 30px;
+    height: 26px;
+    border: none;
+    background: var(--plane) center / contain no-repeat;
+  }
   .scale {
     display: flex;
     justify-content: space-between;
