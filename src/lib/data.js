@@ -705,7 +705,7 @@ const STOPWORDS = new Set(
 export const WORD_TYPES = [
   {
     id: 'adjective',
-    label: 'Describing words',
+    label: 'Adjectives',
     eg: 'cultural, historic, vibrant',
     col: 'adjectives'
   },
