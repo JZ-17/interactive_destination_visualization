@@ -703,11 +703,39 @@ const STOPWORDS = new Set(
  * would be pointless without them.
  */
 export const WORD_TYPES = [
-  { id: 'adjective', label: 'Adjectives', col: 'adjectives' },
-  { id: 'modifier', label: 'Noun modifiers', col: 'nounModifiers' },
-  { id: 'noun', label: 'Charged nouns', col: 'highSentimentNouns' },
-  { id: 'superlative', label: 'Superlatives', col: 'superlatives' },
-  { id: 'other', label: 'Everything else', col: null }
+  {
+    id: 'adjective',
+    label: 'Describing words',
+    eg: 'cultural, historic, vibrant',
+    col: 'adjectives'
+  },
+  {
+    id: 'modifier',
+    // "Noun modifier" is a linguist's term for a noun doing an adjective's
+    // job — the "tourist" in "tourist attractions". The examples carry it
+    // better than any definition would.
+    label: 'Nouns used as adjectives',
+    eg: 'tourist attractions, wine region',
+    col: 'nounModifiers'
+  },
+  {
+    id: 'noun',
+    label: 'Nouns with a feeling in them',
+    eg: 'charm, gem, magic, heart',
+    col: 'highSentimentNouns'
+  },
+  {
+    id: 'superlative',
+    label: 'Superlatives',
+    eg: 'best, largest, most famous',
+    col: 'superlatives'
+  },
+  {
+    id: 'other',
+    label: 'Everything else',
+    eg: 'place names, landmarks, plain nouns',
+    col: null
+  }
 ];
 
 /**

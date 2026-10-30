@@ -701,7 +701,10 @@
               aria-pressed={keepTypes.has(t.id)}
               onclick={() => toggleType(t.id)}
               disabled={!city}
-            >{t.label}</button>
+            >
+              <span class="chip-label">{t.label}</span>
+              <span class="chip-eg">{t.eg}</span>
+            </button>
           {/each}
         </div>
       </div>
@@ -740,6 +743,13 @@
                   {stillLit.has(w.word) ? 'lit' : 'dimmed by the filters'}
                 </span>
               </button>
+              <!-- The counts where the eye already is. The readout below
+                   says the same thing and is the one a screen reader gets,
+                   since a tooltip pinned to a hover is no use to it. -->
+              <span class="tip" aria-hidden="true">
+                <strong>{w.count}×</strong> here ·
+                {w.others === 0 ? 'nobody else' : `${w.others} other ${w.others === 1 ? 'city' : 'cities'}`}
+              </span>
             </li>
           {/each}
         </ul>
@@ -1233,6 +1243,11 @@
     width: min(1060px, 100%);
     margin-inline: auto;
   }
+  /* A tooltip on a word at the edge of a full-width cloud hangs off the
+     page and adds a horizontal scrollbar. `clip` rather than `hidden`: it
+     stops that without making a scroll container, so the tips above the
+     top row are still free to paint upward. */
+  .leftover { overflow-x: clip; }
 
   .left-head {
     margin: 0 0 30px;
@@ -1274,20 +1289,29 @@
   }
 
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  /* Each chip carries its own examples. "Noun modifier" is a term of art
+     nobody outside linguistics uses, and no label short enough to fit will
+     teach it — but "tourist attractions, wine region" does, instantly, and
+     the same trick saves the other four from having to be guessed at. */
   .chip {
-    padding: 4px 12px 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 5px 13px 7px;
     border: 1px solid rgba(0, 0, 0, 0.16);
-    border-radius: 999px;
+    border-radius: 15px;
     background: none;
     font: inherit;
-    font-size: 0.82rem;
     color: inherit;
+    text-align: left;
     opacity: 0.45;
     cursor: pointer;
     transition: opacity 0.12s ease, background 0.12s ease;
   }
   .chip.on { background: rgba(0, 0, 0, 0.065); opacity: 1; }
   .chip:disabled { cursor: default; }
+  .chip-label { font-size: 0.82rem; line-height: 1.2; }
+  .chip-eg { font-size: 0.69rem; line-height: 1.2; opacity: 0.58; }
 
   .reset {
     margin-left: auto;
@@ -1317,12 +1341,18 @@
   .leftover .readout { margin: 14px auto 0 0; }
   .cloud-empty { margin-top: 26px; }
 
-  .cloud-box {
-    margin-top: 14px;
-    padding: 30px 28px 34px;
-    background: #fff;
-    border-radius: 22px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.055);
+  /* No card. The cloud runs the full width of the page and sits straight on
+     the paper — a white panel round it made it look like one more chart,
+     and this is the one thing here that is not a chart. The negative margin
+     cancels the section's own gutter so it reaches the edges. */
+  .leftover .cloud-box {
+    width: auto;
+    max-width: none;
+    margin: 18px -16px 0;
+    padding: 34px clamp(16px, 4vw, 64px) 40px;
+    background: none;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   /* Scattered, but not overlapping. Big and small words are interleaved by
@@ -1368,6 +1398,34 @@
     outline: 2px solid var(--ink);
     outline-offset: 2px;
     border-radius: 4px;
+  }
+
+  /* The counts, right where the cursor already is. Sits above the word so
+     it never covers the one being read, and takes no layout space, so
+     showing it cannot reflow the cloud underneath the pointer. */
+  .cloud-words li { position: relative; }
+  .tip {
+    position: absolute;
+    bottom: calc(100% - 2px);
+    left: 50%;
+    z-index: 3;
+    padding: 3px 9px 4px;
+    border-radius: 999px;
+    background: var(--ink);
+    color: #fff;
+    font-size: 0.7rem;
+    line-height: 1.35;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translate(-50%, 3px);
+    pointer-events: none;
+    transition: opacity 0.1s ease, transform 0.1s ease;
+  }
+  .tip strong { font-weight: 700; }
+  .cloud-words li:hover .tip,
+  .cloud-words li:focus-within .tip {
+    opacity: 1;
+    transform: translate(-50%, 0);
   }
 
   .readout { margin: 14px auto 0; max-width: 74ch; min-height: 2.5em; }
