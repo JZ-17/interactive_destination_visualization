@@ -15,29 +15,52 @@
   let { value = '', cities = [], onpick, variant = 'sky', id = 'city' } = $props();
 </script>
 
-<span class="holder {variant}">
+<span class="holder {variant}" class:empty={!value}>
   <label class="sr-only" for={id}>Change destination</label>
   <select {id} {value} onchange={(e) => onpick?.(e.currentTarget.value)}>
     {#if !value}
-      <option value="" disabled>select destination</option>
+      <option value="" disabled>Select destination</option>
     {/if}
     {#each cities as c (c.city)}
       <option value={c.city}>{c.city}</option>
     {/each}
   </select>
-  <span class="name">{value || 'select destination'}</span>
+  <span class="name">{value || 'Select destination'}</span>
   <svg class="caret" viewBox="0 0 12 8" aria-hidden="true"><path d="M1 1.6 6 6.6 11 1.6Z" /></svg>
 </span>
 
 <style>
+  /*
+   * Centred on what you can SEE, on both axes, which is not what either
+   * default gives you.
+   *
+   * Across: the name and the caret are one group in normal flow, centred
+   * together. Centring the name alone and parking the caret in the padding
+   * is geometrically correct and looks wrong — the eye reads "Seoul ▾" as
+   * the content and sees it shunted right.
+   *
+   * Down: Manjari carries a deep descender slot for Malayalam, so a line box
+   * centred in the pill leaves a capitalised city name riding high — "Seoul"
+   * measured 6.5px of air above and 19.9px below. The padding is therefore
+   * asymmetric by design: it centres the CAP BAND, baseline to cap height,
+   * which is the band a Title Case name actually fills. Descenders hang
+   * below it, as they do in any well-set button.
+   *
+   * Both paddings are in ems of the surrounding type, and the line box is
+   * pinned to 1.2 rather than inherited, so the pill sits the same way in
+   * the 2.1rem sky headline and the 1.3rem deck heading.
+   */
   .holder {
     position: relative;
     display: inline-flex;
     align-items: center;
-    gap: 0.34em;
-    padding: 0.04em 0.44em 0.08em;
+    justify-content: center;
+    gap: 0.3em;
+    padding: 0.415em 0.62em 0;
+    line-height: 1.2;
+    vertical-align: baseline;
     border: 1px solid #fff;
-    border-radius: 0.34em;
+    border-radius: 0.4em;
     cursor: pointer;
     transition: background 0.12s ease, box-shadow 0.12s ease;
   }
@@ -61,14 +84,33 @@
   }
 
   .name {
+    display: block;
     font-weight: 700;
     white-space: nowrap;
   }
+  /* Before a city is picked the placeholder is the longest string the pill
+     ever shows; dropping it off bold keeps the empty state from shouting. */
+  .holder.empty .name { font-weight: 400; }
+
+  /* In flow, so it is centred as part of the group — but nudged back up by
+     the same amount the name was nudged down, since the name's padding
+     moves the caret with it and the caret has no cap band of its own. */
   .caret {
     width: 0.4em;
     flex: none;
+    margin-top: -0.385em;
     fill: currentColor;
   }
+
+  /* For the flight strip: no pill at all, because the strip is already the
+     raised white surface and a pill inside it is a box inside a box. */
+  .bare {
+    border-color: transparent;
+    background: none;
+    padding-right: 1.15em;
+  }
+  .bare:hover { background: rgba(74, 45, 28, 0.07); }
+  .bare .caret { width: 0.52em; }
 
   .sky { background: rgba(255, 255, 255, 0.22); }
   .sky:hover { background: rgba(255, 255, 255, 0.4); }

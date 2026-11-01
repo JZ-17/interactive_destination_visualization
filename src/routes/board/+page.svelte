@@ -22,8 +22,10 @@
    * encodes it.
    */
   import { onMount } from 'svelte';
+  import { afterNavigate } from '$app/navigation';
   import {
     loadCities,
+    loadCountries,
     wordIndex,
     commonWords,
     corpusWords,
@@ -37,19 +39,48 @@
     IATA
   } from '$lib/data.js';
   import BoardingPass from '$lib/BoardingPass.svelte';
-  import CitySelect from '$lib/CitySelect.svelte';
+  import PinMap from '$lib/PinMap.svelte';
+  import FlightNav from '$lib/FlightNav.svelte';
   import { PLANE } from '$lib/ticketArt.js';
 
   let cities = $state([]);
+  let land = $state(null);       // country polygons for the atlas map
   let error = $state(null);
   let selected = $state('');      // the one piece of shared state on this page
+  let atlas;                      // the map frame, now the first thing below the gate
   let sky;                        // frame 2's scroll track
+  let arrival;                    // …and the two frames after it, for the strip
+  let leftover;
+
+  /** How far through the story the strip's plane has flown, 0..1. */
+  let story = $state(0);
+  /** Whether the strip is up: once the gate is behind you. */
+  let onStrip = $state(false);
+  /** The frames the strip can jump to, as fractions of the same track. */
+  let stops = $state([]);
+
+  /** The strip's waypoints, in the order you fly through them. */
+  const FRAMES = [
+    { id: 'atlas', label: 'The fifty' },
+    { id: 'sky', label: 'Shared words' },
+    { id: 'arrival', label: 'Counted' },
+    { id: 'leftover', label: 'What’s left' }
+  ];
+  let frameEls = $derived({ atlas, sky, arrival, leftover });
+
+  function jump(id) {
+    frameEls[id]?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+  }
   let progress = $state(0);       // 0 entering the track, 1 leaving it
   let reduced = $state(false);    // prefers-reduced-motion
 
   onMount(async () => {
     try {
-      ({ cities } = await loadCities());
+      // In parallel: the map is useless without the cities and the cities
+      // have nothing to sit on without the map.
+      const [loaded, geo] = await Promise.all([loadCities(), loadCountries()]);
+      cities = loaded.cities;
+      land = geo;
     } catch (e) {
       error = e.message;
     }
@@ -68,6 +99,22 @@
       const { top, height } = sky.getBoundingClientRect();
       const span = height - window.innerHeight;
       progress = span > 0 ? Math.min(1, Math.max(0, -top / span)) : 0;
+
+      // The strip runs the whole story: the atlas is its origin and the foot
+      // of the page is its destination, so the plane answers "how much of
+      // this is left" rather than "where am I in this one frame".
+      if (!atlas) return;
+      const start = atlas.offsetTop;
+      const end = document.documentElement.scrollHeight - window.innerHeight;
+      const run = end - start;
+      story = run > 0 ? Math.min(1, Math.max(0, (window.scrollY - start) / run)) : 0;
+      onStrip = window.scrollY > start * 0.55;
+      stops = run > 0
+        ? FRAMES.filter((f) => frameEls[f.id]).map((f) => ({
+            ...f,
+            at: Math.min(1, Math.max(0, (frameEls[f.id].offsetTop - start) / run))
+          }))
+        : [];
     };
     read();
 
@@ -84,6 +131,20 @@
   // Alphabetical, so the dropdown is scannable. The CSV order is not.
   let sorted = $derived([...cities].sort((a, b) => a.city.localeCompare(b.city)));
   let city = $derived(cities.find((c) => c.city === selected) ?? null);
+
+  /*
+   * A reload lands at the gate, with nothing selected.
+   *
+   * SvelteKit keeps its own scroll positions in sessionStorage and restores
+   * them after the page mounts — later than `afterNavigate`, later than any
+   * hook this component has. Racing it is a losing game, so the gate does
+   * not race it: while no city is picked the frames below are taken out of
+   * layout (see `.frame-set.gated` in the styles), the document is one
+   * screen tall, and a restored position of 4000px has nowhere to land and
+   * clamps to the top on its own. This call is the statement of intent; the
+   * layout is what makes it hold.
+   */
+  afterNavigate(() => window.scrollTo(0, 0));
 
   // Built once over all fifty, not per selection: the whole point of the
   // count beside each word is that it is corpus-wide.
@@ -106,6 +167,14 @@
   let leftWords = $derived(words.filter((_, i) => i % 2 === 0));
   let rightWords = $derived(words.filter((_, i) => i % 2 === 1));
 
+  /**
+   * When the descriptions were read. Not in the CSV and not in
+   * data/METHODOLOGY.md — it is stated here because the reader needs to
+   * know how fresh the copy is, and a tourism site rewrites itself. If the
+   * corpus is ever re-scraped this is the one place to change.
+   */
+  const SCRAPED = 'September 2026';
+
   const now = new Date();
   const time = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   const date = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
@@ -118,9 +187,18 @@
 
   function board() {
     if (!city) return;
-    // The section is rendered above, so it exists by the time this runs.
-    sky?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // The atlas, not the sky: it is what the gate now opens onto, and the
+    // flight reads as a flight because you see the fifty on the ground
+    // first. The section exists by the time this runs — picking the city
+    // un-gated it on an earlier tick.
+    atlas?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+
+  /** 1 -> "1st", 12 -> "12th". The teens are the exception that needs it. */
+  const ord = (n) => {
+    const teen = n % 100 >= 11 && n % 100 <= 13;
+    return n + (teen ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th');
+  };
 
   /** 13 -> 22px, 2 -> 13px. Bigger word = more of the fifty use it. */
   const sizeOf = (n) => 12 + Math.min(n, 30) * 0.42;
@@ -176,37 +254,25 @@
   let mentions = $derived(
     cities.length ? mentionIndex(cities) : { total: new Map(), per: new Map() }
   );
-  /**
-   * Which number the cards rank and draw: total mentions across the fifty
-   * descriptions, or how many of the fifty cities use the word at all.
-   */
-  let measure = $state('mentions');
-
-  /** All 406 words more than one city uses, ranked by the chosen number. */
-  let corpus = $derived(cities.length ? corpusWords(index, mentions.total, measure) : []);
+  /** All 406 words more than one city uses, ranked by times used. */
+  let corpus = $derived(cities.length ? corpusWords(index, mentions.total) : []);
   /** The same words, filtered to this city's — plus how often IT writes them. */
   let ranked = $derived(
-    city ? cityWords(city, corpus, mentions.per.get(city.city), measure) : []
+    city ? cityWords(city, corpus, mentions.per.get(city.city)) : []
   );
 
   /** Which of the corpus's words this city uses: the rows that link across. */
   let own = $derived(new Set(ranked.map((w) => w.word)));
 
   /**
-   * Scales. By cities, both cards count the same thing and share one axis.
-   * By times used they do not — the left card counts one description, the
-   * right counts fifty — so each card is scaled to its own top word and the
-   * cards are labelled with what they are counting. Sharing an axis there
-   * would squash every city bar to a stub and invite reading a city's 3
-   * against the corpus's 69 as if they answered one question.
+   * Scales. The two cards do not count the same thing — the left counts one
+   * description, the right counts fifty — so each is scaled to its own top
+   * word and labelled with what it is counting. Sharing an axis would squash
+   * every city bar to a stub and invite reading a city's 3 against the
+   * corpus's 69 as if they answered one question.
    */
-  let barMax = $derived(corpus.length ? corpus[0][measure] : 1);
-  let cityKey = $derived(measure === 'cities' ? 'cities' : 'own');
-  let cityMax = $derived(
-    measure === 'cities'
-      ? barMax
-      : Math.max(1, ...ranked.map((w) => w.own))
-  );
+  let barMax = $derived(corpus.length ? corpus[0].mentions : 1);
+  let cityMax = $derived(Math.max(1, ...ranked.map((w) => w.own)));
 
   /**
    * One word column across BOTH cards, sized to the longest word on either
@@ -302,8 +368,7 @@
   function toggleType(id) {
     const next = new Set(keepTypes);
     // Turning everything off is allowed here. Nothing is removed, so the
-    // worst it can do is put the lights out, and the readout says how to
-    // bring them back.
+    // worst it can do is put every word out until a type goes back on.
     if (next.has(id)) next.delete(id);
     else next.add(id);
     keepTypes = next;
@@ -380,20 +445,19 @@
   />
 </svelte:head>
 
-<div class="frame-set">
+<div class="frame-set" class:gated={!city} class:strip-up={!!city && onStrip}>
   <!-- ================= FRAME 1 — the gate ================= -->
   <section class="gate">
     <h1>Where do you want to go today?</h1>
     <p class="choose-from">
-      Choose from {cities.length || 50} destinations — half of them famous,
-      half of them not.
+      Choose from {cities.length || 50} destinations.
     </p>
 
     <div class="controls">
       <div class="pill select-pill" class:chosen={!!city}>
         <label class="sr-only" for="dest">Destination</label>
         <select id="dest" bind:value={selected} disabled={!cities.length}>
-          <option value="" disabled>select destination</option>
+          <option value="" disabled>Select destination</option>
           {#each sorted as c (c.city)}
             <option value={c.city}>{c.city}</option>
           {/each}
@@ -426,9 +490,49 @@
 
     <button class="pill board" onclick={board} disabled={!city}>BOARD FLIGHT</button>
 
+    <!-- A page that refuses to scroll and does not say so reads as broken,
+         so the gate says what it is waiting for. -->
+    <p class="gate-hint" aria-live="polite">
+      {#if !city}
+        Pick a destination to continue
+      {/if}
+    </p>
+
     {#if error}
       <p class="error">Could not load the cities: {error}</p>
     {/if}
+  </section>
+
+  <!-- ============ FRAME 1.5 — the atlas ============ -->
+  <!-- The bridge, in both senses. It introduces the corpus — this is the
+       set every later claim is made over — and it carries the page out of
+       the gate's warm paper and into the sky's cold blue, so the flight
+       starts on the ground rather than cutting to altitude. The whole
+       gradient lives on this one section; see `.atlas` in the styles. -->
+  <section class="atlas" bind:this={atlas}>
+    <h2>
+      We scanned tourist sites<span class="mark">*</span> for {cities.length || 50} cities
+      around the world to answer:
+    </h2>
+    <p class="question">
+      How do the ways cities describe themselves reveal how they wish to be perceived?
+    </p>
+    <!-- The way on, above the map rather than after it: the map is the
+         thing to linger over, and a button underneath it reads as the end
+         of the section instead of an offer. Up here it sits with the words
+         that set the question, and the strip at the foot is navigation you
+         have to already know about. -->
+    <button class="pill onward" onclick={() => jump('sky')}>
+      <svg class="jet" viewBox="188 107 38 37" aria-hidden="true"><path d={PLANE} /></svg>
+      TAKE OFF
+    </button>
+
+    <PinMap {cities} {land} {selected} />
+
+    <!-- When, which every claim downstream rests on: a tourism board can
+         rewrite its front page any week, so the corpus is a reading taken
+         on a date rather than a standing fact. -->
+    <p class="source"><span class="mark">*</span> Scanned in {SCRAPED}.</p>
   </section>
 
   <!-- ================= FRAME 2 — the sky ================= -->
@@ -465,19 +569,9 @@
 
       <div class="sky-text">
         <p class="line top">
-          You might think that
-          {#if cities.length}
-            <CitySelect
-              id="dest-sky"
-              value={selected}
-              cities={sorted}
-              variant="sky"
-              onpick={(v) => (selected = v)}
-            />
-          {:else}
-            <strong>your city</strong>
-          {/if}
-          is unique…
+          <!-- Plain text now. The strip at the foot of the page owns the
+               one dropdown, so a headline does not have to be a control. -->
+          You might think that <strong>{city ? city.city : 'your city'}</strong> is unique…
         </p>
 
         {#if reduced}
@@ -543,45 +637,13 @@
        "All fifty" is the baseline rather than "the other 49" because the
        selected city is one of the fifty and pulling it out would change the
        numbers depending on who you picked. -->
-  <section class="arrival">
-    <div class="measure">
-      <span class="measure-label" id="rank-by">Rank by</span>
-      <div class="seg" role="group" aria-labelledby="rank-by">
-        <button
-          class:on={measure === 'mentions'}
-          aria-pressed={measure === 'mentions'}
-          onclick={() => (measure = 'mentions')}
-        >Times used</button>
-        <button
-          class:on={measure === 'cities'}
-          aria-pressed={measure === 'cities'}
-          onclick={() => (measure = 'cities')}
-        >Cities using it</button>
-      </div>
-    </div>
-
+  <section class="arrival" bind:this={arrival}>
     <div class="decks">
       <div class="deck">
         <div class="deck-head">
-          {#if cities.length}
-            <CitySelect
-              id="dest-ranked"
-              value={selected}
-              cities={sorted}
-              variant="paper"
-              onpick={(v) => (selected = v)}
-            />
-          {:else}
-            <h2>Your city</h2>
-          {/if}
+          <h2>{city ? city.city : 'Your city'}</h2>
           <p class="kicker">Most common words</p>
-          <p class="unit">
-            {#if measure === 'cities'}
-              of the fifty cities, how many use it
-            {:else}
-              times {city ? city.city : 'this city'} writes it
-            {/if}
-          </p>
+          <p class="unit">times {city ? city.city : 'this city'} writes it</p>
         </div>
 
         {#if ranked.length}
@@ -603,13 +665,13 @@
                 >
                   <span class="n">{i + 1}</span>
                   <span class="w">{w.word}</span>
-                  <span class="bar"><span class="fill" style="width:{(w[cityKey] / cityMax) * 100}%"></span></span>
-                  <span class="c">{w[cityKey]}</span>
+                  <span class="bar"><span class="fill" style="width:{(w.own / cityMax) * 100}%"></span></span>
+                  <span class="c">{w.own}</span>
                 </button>
               </li>
             {/each}
           </ol>
-          {#if measure === 'mentions' && cityMax === 1}
+          {#if cityMax === 1}
             <p class="flat">
               {city.city} writes every one of these exactly once, so the bars
               are all the same length — short sites have no repeats to show.
@@ -624,13 +686,7 @@
         <div class="deck-head">
           <h2>All fifty</h2>
           <p class="kicker">Most common words</p>
-          <p class="unit">
-            {#if measure === 'cities'}
-              of the fifty cities, how many use it
-            {:else}
-              times all fifty write it
-            {/if}
-          </p>
+          <p class="unit">times all fifty write it</p>
         </div>
         <ol
           class="rank"
@@ -651,32 +707,14 @@
               >
                 <span class="n">{i + 1}</span>
                 <span class="w">{w.word}</span>
-                <span class="bar"><span class="fill" style="width:{(w[measure] / barMax) * 100}%"></span></span>
-                <span class="c">{w[measure]}</span>
+                <span class="bar"><span class="fill" style="width:{(w.mentions / barMax) * 100}%"></span></span>
+                <span class="c">{w.mentions}</span>
               </button>
             </li>
           {/each}
         </ol>
       </div>
     </div>
-
-    <p class="legend">
-      <span>
-        {#if measure === 'mentions'}
-          The two cards count different things — one description on the left,
-          all fifty on the right — so each has its own scale and lengths only
-          compare down a card, not across. Raw counts: a short site cannot
-          repeat itself much, and most cities write most of these words once.
-        {:else}
-          Both cards count the same thing, how many of the fifty cities use
-          the word at all, and share one scale, so lengths compare across.
-        {/if}
-        Both lists scroll; click a word to jump to it in the other card. The
-        left card is the right one filtered to this city's words — faded rows
-        are the ones it doesn't use. Words only one city uses are left out,
-        because the subject is shared vocabulary.
-      </span>
-    </p>
 
     <p class="beyond">But what lies beyond these words?</p>
   </section>
@@ -687,8 +725,8 @@
        is the whole description, not the tagged vocabulary, because the words
        a place actually owns are its landmarks and its geography — and those
        are the ones the pipeline never tagged. -->
-  <section class="leftover">
-    <h2 class="left-head">Let’s filter the common ones out.<br />What’s left?</h2>
+  <section class="leftover" bind:this={leftover}>
+    <h2 class="left-head">Let’s filter the common ones out. What’s left?</h2>
 
     <div class="filters">
       <div class="filter">
@@ -734,14 +772,6 @@
     {#if !city}
       <p class="empty cloud-empty">Pick a destination and its whole vocabulary lands here.</p>
     {:else}
-      <p class="cloud-intro">
-        Every word {city.city}’s tourism board wrote, all {field.length} of them.
-        <strong>Bigger means it writes that word more often.</strong>
-        Turn the dial down and the words the rest of the world also uses go
-        out, one batch at a time. Whatever is still lit at the end belongs to
-        {city.city}.
-      </p>
-
       <div
         class="cloud-box"
         role="group"
@@ -769,9 +799,9 @@
                   {stillLit.has(w.word) ? 'lit' : 'dimmed by the filters'}
                 </span>
               </button>
-              <!-- The counts where the eye already is. The readout below
-                   says the same thing and is the one a screen reader gets,
-                   since a tooltip pinned to a hover is no use to it. -->
+              <!-- The counts where the eye already is. A screen reader
+                   gets the same numbers from the button's own sr-only
+                   text, which a hover tooltip could never give it. -->
               <span class="tip" aria-hidden="true">
                 <strong>{w.count}×</strong> here ·
                 {w.others === 0 ? 'nobody else' : `${w.others} other ${w.others === 1 ? 'city' : 'cities'}`}
@@ -781,37 +811,46 @@
         </ul>
       </div>
 
-      <p class="readout" aria-live="polite">
-        {#if cloudLit}
-          {@const w = field.find((x) => x.word === cloudLit)}
-          <strong>{w.word}</strong> — {city.city} writes it {w.count}
-          {w.count === 1 ? 'time' : 'times'}; {w.others === 0
-            ? 'and nobody else says it at all'
-            : `and ${w.others} other ${w.others === 1 ? 'city' : 'cities'} reach for it too`}.
-        {:else if stillLit.size === 0}
+      <!-- The one state the cloud cannot explain itself in. Every word is
+           still there, only unlit, so without a line here a reader who
+           switched off all five types sees a blank field and no reason for
+           it. It says where the way back is; Reset is in the bar above. -->
+      {#if stillLit.size === 0}
+        <p class="cloud-out" aria-live="polite">
           Everything is out. Nudge a filter back and the lights come on.
-        {:else}
-          <strong>{stillLit.size}</strong> of {field.length} still lit. Hover one
-          for its counts; the faint ones are still there, just not making the cut.
-        {/if}
-      </p>
+        </p>
+      {/if}
 
       <p class="uniqueness">
         <strong>{Math.round(score.share * 100)}%</strong> of the distinct words
         {city.city} writes, no other city writes at all —
-        {score.unique} of {score.total}. That is the
-        <strong>{score.rank}{['th','st','nd','rd'][score.rank % 10 > 3 || (score.rank % 100 >= 11 && score.rank % 100 <= 13) ? 0 : score.rank % 10]}</strong>
-        highest share of the fifty.
+        {score.unique} of {score.total}.
       </p>
+      <!-- Length belongs next to that share, because the share climbs with
+           it: a longer site has more room for a word nobody else reached
+           for. Read alone, the percentage would flatter the wordiest
+           boards. -->
       <p class="uniqueness-note">
-        A share of words, not of meaning — and not the similarity score in the
-        methodology, which has no percentage reading. It also rises with how
-        long the scrape was (r&nbsp;=&nbsp;0.49): a longer site has more room
-        for a word nobody else reached for, so read it beside the word count,
-        not on its own. {city.city}’s description runs {city.wordCount} words.
+        Keep in mind that {city.city}’s description runs {city.wordCount} words,
+        which is the {ord(score.lengthRank)} largest in the dataset.
       </p>
     {/if}
   </section>
+
+  <!-- Fixed, outside the frames, so it is the one thing that does not
+       scroll away. It waits until the gate is behind you: at the gate the
+       big select pill is right there, and two controls for one value, a
+       screen apart, is one too many. -->
+  {#if city && onStrip}
+    <FlightNav
+      cities={sorted}
+      {selected}
+      progress={story}
+      {stops}
+      onpick={(v) => (selected = v)}
+      onjump={jump}
+    />
+  {/if}
 </div>
 
 <style>
@@ -822,6 +861,30 @@
     --ticket: #7b6a60;
     --ink: #121212;
     --display: 'Manjari', system-ui, sans-serif;
+  }
+
+  /*
+   * The gate is a gate: everything below frame 1 is about one city, and
+   * until one is picked there is nothing down there to read — frame 2 flies
+   * through an empty sky and frames 3 and 4 say "pick a destination". So
+   * until then the page simply IS the gate: the frames below leave layout
+   * and the document is one screen tall.
+   *
+   * This rather than locking `overflow` on the root element, which was the
+   * first thing I reached for and is worse twice over. It cannot stop
+   * SvelteKit restoring a scroll position on reload — `scrollTo` still
+   * moves a root that is `overflow: hidden`, and no scroll event is even
+   * dispatched to catch it — so you came back stranded at the bottom of a
+   * page you could not scroll out of. And on a window too short for the
+   * gate's own contents it locked the dropdown itself out of reach. Taking
+   * the frames out of layout fixes both: there is nothing below to scroll
+   * to, and the gate can still scroll within itself when it has to.
+   */
+  .frame-set.gated .atlas,
+  .frame-set.gated .sky,
+  .frame-set.gated .arrival,
+  .frame-set.gated .leftover {
+    display: none;
   }
 
   /* ---------------- frame 1 ---------------- */
@@ -851,6 +914,17 @@
     gap: 16px;
     flex-wrap: wrap;
     justify-content: center;
+  }
+
+  /* Sits under BOARD FLIGHT in the section's own gap, so it does not add
+     height of its own and the two states swap without the gate shifting. */
+  .gate-hint {
+    margin: -18px 0 0;
+    font-family: var(--display);
+    font-size: 0.9rem;
+    color: var(--ink);
+    opacity: 0.6;
+    text-align: center;
   }
 
   /* The pills carry a soft drop shadow plus a darker hairline under the
@@ -935,6 +1009,166 @@
     font-family: var(--display);
     color: #8a2f2f;
   }
+
+  /* ---------------- frame 1.5 ---------------- */
+  /*
+   * The one gradient on the page, and the reason the three frames read as
+   * one descent: it starts on EXACTLY the gate's paper and ends on EXACTLY
+   * the first stop of the sky's own gradient (`#edeef7` in `#sky-grad`
+   * above), so both joins are seams you cannot find. Change either of those
+   * colours and this has to move with it.
+   *
+   * Interpolated in oklab, so the warm end does not go grey through the
+   * middle the way straight sRGB mixing takes it.
+   */
+  .atlas {
+    position: relative;
+    /* Keeps the dither below blending with this section's own background and
+       nothing else — without it the film reaches the gate and the sky. */
+    isolation: isolate;
+    background: linear-gradient(180deg in oklab, var(--paper) 0%, #edeef7 100%);
+    font-family: var(--display);
+    color: var(--ink);
+    padding: 64px 16px 92px;
+    text-align: center;
+    /* Everything in this frame that is not the map, plus room for the
+       flight strip: the map sizes itself against what is left. Measured,
+       not guessed — see the max-width on `.atlas-map`. */
+    --atlas-reserve: 434px;
+  }
+
+  /*
+   * The dither, and the reason the gradient has no hard lines across it.
+   *
+   * Paper to sky is #fbf1ee -> #edeef7: fourteen steps of red, three of
+   * green, nine of blue, spread over the whole section. Eight-bit output
+   * has to round that to whole numbers, so it lands as a stack of flat
+   * bands with a visible edge at every rounding boundary — and the eye
+   * exaggerates those edges rather than forgiving them. More colour stops
+   * cannot help; the steps are in the output, not the ramp.
+   *
+   * A film of fine noise dissolves them: each pixel is nudged a level or so
+   * at random, so the boundary is scattered instead of straight. It is the
+   * same trick as dithering a low-bit image, and at this opacity you can
+   * only see it by the lines that stop being there.
+   *
+   * It has to be MEAN-PRESERVING, which the obvious version is not. Laying
+   * translucent noise straight over the gradient darkens it — the noise
+   * averages mid-grey and the background here is near-white — so the
+   * section as a whole sinks a few levels below the sky underneath it and
+   * grows a hard edge along its own bottom: the exact line this is here to
+   * remove, moved. Greyscale noise through `overlay` has no such bias,
+   * because overlay against mid-grey is the identity: the film lightens as
+   * often as it darkens and the average comes out where it started.
+   */
+  .atlas::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    mix-blend-mode: overlay;
+    opacity: 0.22;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='0' intercept='1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .atlas > :global(*) {
+    width: min(1180px, 100%);
+    margin-inline: auto;
+    /* Above the dither film. */
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Still an h2, because this is the section's heading and the document
+     outline and screen readers both rely on that — but set as body text.
+     The three lines are one spoken sentence that happens to break twice,
+     and a display-sized first line made it read as a title with a caption
+     under it instead.
+
+     `margin: 0 auto`, not 0: this rule outranks the `margin-inline: auto`
+     on `.atlas > *`, so a plain `margin: 0` quietly reset it and left the
+     1180px box flush against the section's left padding — measured 34px
+     off centre at 1280, while the line below it sat dead centre. */
+  .atlas h2 {
+    width: min(62ch, 100%);
+    margin: 0 auto;
+    font-size: clamp(0.95rem, 1.6vw, 1.1rem);
+    font-weight: 400;
+    letter-spacing: 0;
+    line-height: 1.4;
+    opacity: 0.8;
+  }
+  /* The project's question, on its own line and held to a readable measure
+     — across the full 1180px it ran as one thin band of text and stopped
+     looking like a question at all. */
+  .atlas .question {
+    width: min(58ch, 100%);
+    margin: 4px auto 0;
+    font-size: clamp(0.95rem, 1.6vw, 1.1rem);
+    font-weight: 700;
+    line-height: 1.4;
+    /* Fuller ink than the line that leads into it: the bold is doing the
+       emphasising, and holding it at 0.8 would mostly thicken a grey. */
+    opacity: 0.92;
+  }
+  /* The frame is meant to be taken in at once — the fifty, the question
+     and the way on — so the map is sized to whatever height the rest of
+     the section leaves rather than to the page width. The plate is 2:1,
+     so the width it can afford is twice that leftover height. On a tall
+     window the 1180px box still wins and nothing shrinks. */
+  .atlas :global(.atlas-map) {
+    margin-top: clamp(20px, 3.4vw, 44px);
+    max-width: min(1180px, calc((100svh - var(--atlas-reserve)) * 2));
+    margin-inline: auto;
+  }
+
+  /* The scrape date. Small and set back, because it qualifies the corpus
+     rather than saying anything about a city. */
+  .atlas .source {
+    width: min(62ch, 100%);
+    margin: 14px auto 0;
+    font-size: 0.76rem;
+    line-height: 1.45;
+    opacity: 0.55;
+  }
+  .mark {
+    /* Raised a little and kept off the text's weight, so it reads as a
+       marker rather than as punctuation inside the sentence. */
+    font-size: 0.85em;
+    vertical-align: 0.28em;
+    opacity: 0.75;
+  }
+
+  /* The same pill as BOARD FLIGHT, one step quieter: the gate's button is
+     the decision, this one only carries you on. `width: auto` because the
+     rule above hands every direct child of the atlas a 1180px box, which
+     would stretch a pill across the whole section. */
+  .atlas .onward {
+    width: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 11px;
+    margin: clamp(28px, 4.5vw, 50px) auto 0;
+    padding: 13px 28px;
+    font-size: 0.95rem;
+    letter-spacing: 0.06em;
+  }
+  /* Nose up, the way a departures board draws it — and the same jet as the
+     ticket and the flight strip, so the three read as one aircraft. */
+  .onward .jet {
+    width: 19px;
+    flex: none;
+    fill: var(--ink);
+    transform: rotate(-45deg);
+    transition: transform 0.16s ease;
+  }
+  .onward:hover .jet { transform: rotate(-45deg) translateX(3px); }
+
+  /* The strip is fixed over the page, so the two frames whose content runs
+     to their own bottom edge have to give it room or it sits on top of
+     them: frame 2's closing line and frame 4's last paragraph. */
+  .frame-set.strip-up .stage { padding-bottom: 112px; }
+  .frame-set.strip-up .leftover { padding-bottom: 180px; }
 
   /* ---------------- frame 2 ---------------- */
   /* The track is the scroll budget for the flight; the stage is the one
@@ -1077,47 +1311,6 @@
     padding: 76px 16px 56px;
   }
 
-  .measure {
-    width: min(1060px, 100%);
-    margin: 0 auto 26px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  .measure-label {
-    font-size: 0.78rem;
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
-    opacity: 0.65;
-  }
-  .seg {
-    display: inline-flex;
-    background: #fff;
-    border-radius: 999px;
-    padding: 3px;
-    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
-  }
-  .seg button {
-    font: inherit;
-    font-size: 0.86rem;
-    color: var(--ink);
-    background: none;
-    border: none;
-    border-radius: 999px;
-    padding: 6px 15px;
-    cursor: pointer;
-    opacity: 0.55;
-    transition: background 0.12s ease, opacity 0.12s ease;
-  }
-  .seg button.on {
-    background: rgba(0, 0, 0, 0.065);
-    opacity: 1;
-  }
-  .seg button:focus-visible {
-    outline: 2px solid var(--ink);
-    outline-offset: 2px;
-  }
-
   .decks {
     width: min(1060px, 100%);
     margin: 0 auto;
@@ -1130,9 +1323,10 @@
   .deck-head {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
     gap: 9px;
     font-size: clamp(1.15rem, 2.1vw, 1.45rem);
+    text-align: center;
   }
   .deck-head h2 {
     margin: 0;
@@ -1146,7 +1340,7 @@
     text-transform: uppercase;
   }
   /* What the bars and numbers in this card are counting. The two cards count
-     different things when the measure is times used, so each says which. */
+     different things — one description, then all fifty — so each says which. */
   .unit {
     margin: -4px 0 0;
     font-size: 0.78rem;
@@ -1250,12 +1444,15 @@
     max-width: 74ch;
   }
 
+  /* Centred, and matched to frame 4's heading: the two are a question and
+     its answer across a section break, so they sit on the same axis. */
   .beyond {
     width: min(1060px, 100%);
     margin: 104px auto 0;
     font-size: clamp(1.7rem, 4.4vw, 2.7rem);
     font-weight: 400;
     letter-spacing: -0.015em;
+    text-align: center;
   }
 
   /* ---------------- frame 4 ---------------- */
@@ -1275,13 +1472,20 @@
      top row are still free to paint upward. */
   .leftover { overflow-x: clip; }
 
+  /* Body text, not a headline, and still an h2 so the section keeps its
+     place in the outline and the flight strip's "What's left" stop has
+     something to point at. The display-sized line above it — "But what
+     lies beyond these words?" — is this frame's heading to the eye; two
+     big lines in a row made the reader ask which one was the title. */
   .left-head {
-    margin: 0 0 30px;
-    font-size: clamp(1.7rem, 4.4vw, 2.7rem);
+    width: min(62ch, 100%);
+    margin: 0 auto 28px;
+    font-size: clamp(0.95rem, 1.6vw, 1.1rem);
     font-weight: 400;
-    line-height: 1.12;
-    letter-spacing: -0.015em;
+    line-height: 1.4;
+    letter-spacing: 0;
     text-align: center;
+    opacity: 0.8;
   }
 
   /* One raised bar holding both filters, the way the gate's pills are raised
@@ -1356,30 +1560,43 @@
     opacity: 0.45;
   }
 
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
   /* Each chip carries its own examples. "Noun modifier" is a term of art
      nobody outside linguistics uses, and no label short enough to fit will
      teach it — but "tourist attractions, wine region" does, instantly, and
      the same trick saves the other four from having to be guessed at. */
+  /*
+   * On by default, so the ON state is the one the eye lives with and it is
+   * the one that has to be quiet. A grey fill inside a grey outline gave
+   * five boxed-in blocks; the fill alone, warmed to the project's brown and
+   * with the border gone, reads as one soft row. Off is then the absence of
+   * the fill rather than a second treatment: a hairline keeps the shape and
+   * the type steps back.
+   */
   .chip {
     display: flex;
     flex-direction: column;
-    gap: 1px;
-    padding: 5px 13px 7px;
-    border: 1px solid rgba(0, 0, 0, 0.16);
-    border-radius: 15px;
-    background: none;
+    gap: 2px;
+    padding: 9px 17px 11px;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    background: rgba(123, 106, 96, 0.13);
     font: inherit;
     color: inherit;
     text-align: left;
-    opacity: 0.45;
     cursor: pointer;
-    transition: opacity 0.12s ease, background 0.12s ease;
+    transition: background 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
   }
-  .chip.on { background: rgba(0, 0, 0, 0.065); opacity: 1; }
+  .chip:not(.on) {
+    background: none;
+    border-color: rgba(18, 18, 18, 0.13);
+    opacity: 0.5;
+  }
+  .chip.on:hover:not(:disabled) { background: rgba(123, 106, 96, 0.19); }
+  .chip:not(.on):hover:not(:disabled) { opacity: 0.72; }
   .chip:disabled { cursor: default; }
-  .chip-label { font-size: 0.82rem; line-height: 1.2; }
-  .chip-eg { font-size: 0.69rem; line-height: 1.2; opacity: 0.58; }
+  .chip-label { font-size: 0.84rem; line-height: 1.25; }
+  .chip-eg { font-size: 0.7rem; line-height: 1.25; opacity: 0.6; }
 
   .reset {
     margin-left: auto;
@@ -1396,17 +1613,15 @@
     text-underline-offset: 3px;
   }
 
-  .cloud-intro,
-  .readout,
+  .cloud-out,
   .uniqueness-note {
     font-size: 0.8rem;
     line-height: 1.55;
     opacity: 0.7;
   }
-  /* Flush with the card below rather than centred on it: a centred block of
-     small text beside a full-width card reads as a stray caption. */
-  .leftover .cloud-intro { margin: 18px auto 0 0; max-width: 74ch; }
-  .leftover .readout { margin: 14px auto 0 0; }
+  /* Flush with the cloud's left edge rather than centred: a centred line of
+     small text under a full-bleed field reads as a stray caption. */
+  .leftover .cloud-out { margin: 14px auto 0 0; max-width: 74ch; }
   .cloud-empty { margin-top: 26px; }
 
   /* No card. The cloud runs the full width of the page and sits straight on
@@ -1416,7 +1631,9 @@
   .leftover .cloud-box {
     width: auto;
     max-width: none;
-    margin: 18px -16px 0;
+    /* A little more air than the paragraph that used to sit here left: the
+       cloud now follows the control bar directly and wants the gap. */
+    margin: 28px -16px 0;
     padding: 34px clamp(16px, 4vw, 64px) 40px;
     background: none;
     border-radius: 0;
@@ -1500,8 +1717,6 @@
     transform: translate(-50%, 0);
   }
 
-  .readout { margin: 14px auto 0; max-width: 74ch; min-height: 2.5em; }
-  .readout strong { opacity: 1; }
 
   .uniqueness {
     margin: 44px auto 0;
@@ -1531,7 +1746,7 @@
   @media (prefers-reduced-motion: reduce) {
     .pill,
     .fill,
-    .seg button,
+    .onward .jet,
     .line.bottom { transition: none; }
   }
 </style>

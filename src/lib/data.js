@@ -619,38 +619,35 @@ export function mentionIndex(cities) {
  * Every describing word that more than one of the fifty cities uses. 406 of
  * them, which is why the view that shows this scrolls.
  *
- * `by` picks the ranking: 'mentions' is how many times the word appears in
- * all fifty descriptions put together, 'cities' is how many of the fifty use
- * it at all. They are different questions — one word repeated sixty-five
- * times by a handful of sites is not the same finding as one word reached
- * for by thirty different cities — so the view lets the reader switch and
- * carries both numbers on every row.
+ * Ranked by times used: how often the word appears across all fifty
+ * descriptions put together. Every row still carries `cities`, how many of
+ * the fifty use the word at all, because the sky frame sizes the cloud by it.
  *
- * A word only one city uses is dropped either way: the subject is shared
- * vocabulary, and a count of one city is the absence of it.
+ * A word only one city uses is dropped: the subject is shared vocabulary,
+ * and a count of one city is the absence of it.
  */
-export function corpusWords(index, mentions, by = 'mentions', n = 0) {
+export function corpusWords(index, mentions, n = 0) {
   const out = [];
   for (const [word, users] of index) {
     if (users.length < 2) continue;
     out.push({ word, cities: users.length, mentions: mentions.get(word) ?? 0 });
   }
-  const key = by === 'cities' ? 'cities' : 'mentions';
-  const tie = key === 'cities' ? 'mentions' : 'cities';
-  out.sort((a, b) => b[key] - a[key] || b[tie] - a[tie] || a.word.localeCompare(b.word));
+  out.sort(
+    (a, b) => b.mentions - a.mentions || b.cities - a.cities || a.word.localeCompare(b.word)
+  );
   return n > 0 ? out.slice(0, n) : out;
 }
 
 /**
  * One city's share of that list. Same words as the corpus list, so anything
  * here can be found over there — but each row also carries `own`, how many
- * times THIS city writes the word, and ranking by times used ranks by that.
+ * times THIS city writes the word, which is what this list ranks by.
  *
  * Which is a different number from the corpus's, on a much smaller scale:
  * Almaty writes "cultural" a handful of times, all fifty write it 69. The
  * card that shows `own` therefore gets its own axis, and the UI says so.
  */
-export function cityWords(city, corpus, counts, by = 'mentions') {
+export function cityWords(city, corpus, counts) {
   const mine = new Set(
     DESCRIBING_POOL.get(city).map((w) => w.trim().toLowerCase())
   );
@@ -658,8 +655,6 @@ export function cityWords(city, corpus, counts, by = 'mentions') {
     .filter((w) => mine.has(w.word))
     .map((w) => ({ ...w, own: counts?.get(w.word) ?? 0 }));
 
-  // By cities, the two lists measure the same thing and keep one order.
-  if (by === 'cities') return rows;
   return rows.sort(
     (a, b) => b.own - a.own || b.mentions - a.mentions || a.word.localeCompare(b.word)
   );
@@ -795,11 +790,25 @@ export function descriptionIndex(cities) {
     const total = counts.size;
     let unique = 0;
     for (const w of counts.keys()) if (docFreq.get(w) === 1) unique += 1;
-    scores.set(c.city, { unique, total, share: total ? unique / total : 0, rank: 0 });
+    scores.set(c.city, {
+      unique,
+      total,
+      share: total ? unique / total : 0,
+      rank: 0,
+      lengthRank: 0
+    });
   }
   [...scores.entries()]
     .sort((a, b) => b[1].share - a[1].share)
     .forEach(([, s], i) => (s.rank = i + 1));
+
+  // How long this description runs against the other forty-nine, longest
+  // first. The share above climbs with length — a longer site has more room
+  // for a word nobody else reached for — so the two numbers are only honest
+  // next to each other.
+  [...cities]
+    .sort((a, b) => (b.wordCount ?? 0) - (a.wordCount ?? 0))
+    .forEach((c, i) => (scores.get(c.city).lengthRank = i + 1));
 
   return { perCity, docFreq, typesOf, scores };
 }
