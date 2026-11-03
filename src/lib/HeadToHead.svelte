@@ -1,7 +1,7 @@
 <script>
   /**
    * Josh's sketch 15, with one correction from the methodology: similarity is
-   * cosine on descriptive TF-IDF and the corpus maximum is 0.20, so the sketch's
+   * cosine on descriptive TF-IDF and the corpus maximum is 0.169, so the sketch's
    * "Overall similarity 95%" is not a number this data can produce, and no
    * single similarity score is shown.
    *

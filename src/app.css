@@ -27,6 +27,7 @@
   --land: #e8e2d6;
 
   --radius: 8px;
+  --nav-h: 44px;         /* the site menu; full-screen drafts subtract it */
   --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 

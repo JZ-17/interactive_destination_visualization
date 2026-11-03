@@ -75,7 +75,7 @@
 <svelte:head><title>How cities sell themselves — site structure</title></svelte:head>
 
 <nav class="rail" aria-label="Sections">
-  <a class="home" href="../">← Prototypes</a>
+  <a class="home" href="../">← Main page</a>
   <ul>
     {#each sections as s}
       <li><a href="#{s.id}">{s.label}</a></li>
@@ -336,7 +336,7 @@
             onpickcity={pick}
           />
           <div class="globe-side">
-            <Legend note={false} />
+            <Legend note={false} markers />
             {#if pair.length === 2}
               <p class="pairline">
                 <strong>{pair[0].city}</strong> &amp; <strong>{pair[1].city}</strong>
@@ -427,8 +427,8 @@
       <p class="note">
         50 cities × 139 columns, from the official tourism homepage of each.
         Theme measures are mentions per 1,000 words, never raw counts — the
-        descriptions differ in length by roughly tenfold. Similarity is cosine
-        on descriptive TF-IDF and tops out at 0.20 across the whole corpus, so
+        descriptions differ in length by roughly seventeenfold. Similarity is cosine
+        on descriptive TF-IDF and tops out at 0.169 across the whole corpus, so
         it is reported as a ranking and never as a percentage.
       </p>
     </footer>

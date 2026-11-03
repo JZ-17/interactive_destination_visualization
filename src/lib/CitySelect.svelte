@@ -12,20 +12,34 @@
    * `sky` is the outlined version for the blue frame; `paper` is the white
    * pill for the pink ones.
    */
-  let { value = '', cities = [], onpick, variant = 'sky', id = 'city' } = $props();
+  let {
+    value = '',
+    cities = [],
+    onpick,
+    variant = 'sky',
+    id = 'city',
+    label = 'Change destination',
+    placeholder = 'Select destination',
+    /** A city this menu cannot pick, because the other one already holds it. */
+    taken = '',
+    /** Offer a way to empty this menu from inside it. */
+    clearable = false
+  } = $props();
 </script>
 
 <span class="holder {variant}" class:empty={!value}>
-  <label class="sr-only" for={id}>Change destination</label>
+  <label class="sr-only" for={id}>{label}</label>
   <select {id} {value} onchange={(e) => onpick?.(e.currentTarget.value)}>
     {#if !value}
-      <option value="" disabled>Select destination</option>
+      <option value="" disabled>{placeholder}</option>
+    {:else if clearable}
+      <option value="">Clear this city</option>
     {/if}
     {#each cities as c (c.city)}
-      <option value={c.city}>{c.city}</option>
+      <option value={c.city} disabled={c.city === taken}>{c.city}</option>
     {/each}
   </select>
-  <span class="name">{value || 'Select destination'}</span>
+  <span class="name">{value || placeholder}</span>
   <svg class="caret" viewBox="0 0 12 8" aria-hidden="true"><path d="M1 1.6 6 6.6 11 1.6Z" /></svg>
 </span>
 

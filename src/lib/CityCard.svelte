@@ -1,5 +1,5 @@
 <script>
-  import { VOICE_BLURB } from './data.js';
+  import { VOICE_BLURB, VOICE_SHORT } from './data.js';
 
   /**
    * One city, as a card. The measure currently being sorted on is the card's
@@ -29,6 +29,12 @@
     draggable = false,
     /** Tint the card with the city's own hue; category moves to the border. */
     cityColor = false,
+    /** A short label hung off the card's top edge, like a luggage tag. */
+    tag = null,
+    /** A solid colour for this card: the reader's own cities wear their ticket. */
+    spot = null,
+    /** Portrait only: print the selling style in words, not just on hover. */
+    showVoice = false,
     onhover = () => {},
     onpick = () => {}
   } = $props();
@@ -48,7 +54,7 @@
     e.dataTransfer.setData('text/plain', city.city);
     e.dataTransfer.effectAllowed = 'move';
   }}
-  style={cityColor ? `--city-h: ${city.hue};` : undefined}
+  style="{cityColor ? `--city-h: ${city.hue};` : ''}{spot ? `--spot: ${spot};` : ''}"
   class="card"
   class:city-color={cityColor}
   class:dense
@@ -56,6 +62,7 @@
   class:draggable
   class:gem={city.category === 'hidden'}
   class:picked
+  class:spot={!!spot}
   class:hovered
   class:dimmed
   role="button"
@@ -71,6 +78,7 @@
   onfocus={() => onhover(city.city)}
   onblur={() => onhover(null)}
 >
+{#if tag}<span class="tag">{tag}</span>{/if}
 {#if portrait}
   <p class="type">{city.archetype}</p>
   <div class="face">
@@ -86,6 +94,7 @@
     <span class="chip muted" title="{city.personality} — {VOICE_BLURB[city.personality] ?? ''}">{city.personality}</span>
     <span class="rank">#{rank}</span>
   </footer>
+  {#if showVoice}<p class="voice">{VOICE_SHORT[city.personality] ?? ''}</p>{/if}
 {:else if dense}
   <div class="row">
     <div class="ident">
@@ -204,6 +213,41 @@
     .card:not(.portrait):not(.dense) .unit { font-size: 0.53rem; }
     .card:not(.portrait):not(.dense) .chip { font-size: 0.52rem; padding: 1px 5px; }
     .card:not(.portrait):not(.dense) .chip.muted { display: none; }
+  }
+
+  /* The card's own colours all read from these, so re-pointing them turns the
+     whole card over to white on the ticket's colour. */
+  .card.spot {
+    --text-primary: #fff;
+    --text-secondary: rgba(255, 255, 255, 0.92);
+    --text-muted: rgba(255, 255, 255, 0.88);
+    --border: rgba(255, 255, 255, 0.5);
+    --city: #fff;
+    --track-bg: rgba(255, 255, 255, 0.28);
+    background: var(--spot);
+    color: #fff;
+    box-shadow: 0 10px 24px rgba(25, 30, 59, 0.3);
+  }
+  .card.spot.picked { box-shadow: 0 10px 24px rgba(25, 30, 59, 0.3); border-color: #191e3b; }
+  .card.spot .tag { background: #191e3b; color: #fff; }
+  .tag {
+    position: absolute;
+    top: -9px;
+    right: 10px;
+    padding: 1px 8px 2px;
+    border-radius: 999px;
+    background: var(--text-primary);
+    color: var(--surface-1);
+    font-size: 0.64rem;
+    font-weight: 650;
+    white-space: nowrap;
+  }
+  .voice {
+    margin-top: 5px;
+    min-height: 2.6em; /* room for two lines, so every card's rule stays level */
+    font-size: 0.68rem;
+    line-height: 1.3;
+    color: var(--text-secondary);
   }
 
   /* Portrait: playing-card proportions, read top to bottom. The card sizes

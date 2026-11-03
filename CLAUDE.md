@@ -11,11 +11,24 @@ How 50 cities' official tourism sites describe themselves, and which cities soun
   anything less common needs a label and a one-line introduction).
 - **Measure:** Per-city theme rates (`theme: <Theme>`, mentions per 1,000 words)
   and the four twin/similarity measures. Rates, never raw counts — descriptions
-  differ in length by ~10x.
+  differ in length by ~17x.
 - **Judging criteria:**
   1. A reader can name what a city over-indexes on, and find another city that
      sounds like it, without reading any prose.
   2. No view implies a precision the data does not support (see Claims below).
+
+## Site structure
+
+- `/` is **the main page and the only one under active design**: a scrollable
+  flight that starts at the boarding pass, whose FROM and TO are the page's two
+  dropdowns. One city gets a journey about how it compares to the other 49 (its
+  shared words, the two word boards, what is unique to it, who it sounds like).
+  Two cities get a journey about each other (personality cards, themes, selling
+  moves, shared words). Both land on Rank the 50 with the reader's cities picked
+  out. Add new views slowly; the globe is out for now.
+- `/board`, `/prototype-a`, `/prototype-b` and `/story` are earlier drafts, kept
+  in the menu bar for reference. Prototype B's dark skin predates the light-only
+  rule and stays with the draft.
 
 ## Stack
 
@@ -31,7 +44,8 @@ How 50 cities' official tourism sites describe themselves, and which cities soun
 - `src/lib/data.js` owns all loading and derivation. Components receive plain
   arrays/objects through props and never load anything themselves.
 - The dataset lives in `static/city_master.csv`; load it client-side with
-  `d3.csv` from `/city_master.csv` (leading slash, no `static/`).
+  `d3.csv` through SvelteKit's `base` (see `asset()` in `data.js`). A bare
+  leading-slash path breaks under the GitHub Pages sub-path.
 - Every value loads as a string. Convert numeric columns on load.
 - Multi-value cells are joined with ` | `. Split on `|` and trim.
 - D3 margin convention. Label axes with units ("mentions per 1,000 words").
@@ -59,10 +73,12 @@ How 50 cities' official tourism sites describe themselves, and which cities soun
   opposite-toned halo so the ring reads on dark ocean and pale desert alike.
   Luminance is the one channel that survives any terrain underneath and any
   colour blindness, which is why category sits there rather than in a hue.
-- **On the globe, category is the marker's RING, not its fill.** Every country
-  is tinted separately there, so a coloured fill would be read against a
-  different backdrop each time. Markers are a near-white core plus a 3.2px
-  category ring.
+- **The reader's own cities are the one exception to "colour is category".**
+  The boarding pass, the personality cards and the reader's two cities (their
+  deck cards and comparison marks) wear `VOICE_TICKET` from `data.js`, chosen by
+  personality. It is stationery, not an encoding: the personality is printed
+  beside it, there is no legend, and the other 48 cards never use it. Every
+  colour must keep white type at 4.5:1 or better.
 - **In Prototype A each city carries its own hue** for its card wash and its
   value bar, with category moved to a translucent border round the card. Same
   device as the country tints: identity only, no legend, no meaning. Hues are
@@ -77,8 +93,9 @@ How 50 cities' official tourism sites describe themselves, and which cities soun
   opacity and scale.
 - Legend present whenever two categories are on screen; direct-label where
   there is room. Identity is never carried by colour alone.
-- **Light only. There is no dark mode** — the palette is a light-mode brand
-  look and the tan page `#f7f1e8` is the point of it.
+- **Light only. There is no dark mode.** The main page is pale sky `#eef3f9`
+  (both category colours keep 3:1 on it); `#f7f1e8` tan stays the default token
+  for the drafts.
 
 ## Data constraints (from data/METHODOLOGY.md — read it before adding a measure)
 
@@ -89,7 +106,7 @@ How 50 cities' official tourism sites describe themselves, and which cities soun
   because the project's question is framed around it — but any quantitative
   claim about "hidden gems vs big destinations" is partly measuring the labels.
   Say so in the UI.
-- **Similarity is cosine on descriptive TF-IDF and its corpus maximum is 0.20.**
+- **Similarity is cosine on descriptive TF-IDF and its corpus maximum is 0.169.**
   It is a *ranking*, not a percentage. Never render it as "95% similar" or as a
   percentage of anything. Show rank and the shared words instead.
 - **`Distinctiveness` correlates −0.76 with description length** and
@@ -98,8 +115,8 @@ How 50 cities' official tourism sites describe themselves, and which cities soun
 - **Four twin definitions disagree on purpose** — `Sounds most like` (cosine
   TF-IDF), `Twin (vocabulary overlap)` (Jaccard), `Twin (theme profile)` and
   `Twin (personality profile)` (Euclidean, **lower is closer**). They agree for
-  at most 8 of 50 cities. Never present one as "the" twin; let the user switch
-  and show that they disagree.
+  at most 8 of 50 cities. Never present one as "the" twin; show them together
+  so the disagreement is visible.
 - **`Archetype` is not the most-mentioned theme.** It is the theme with the
   highest rate ÷ corpus-mean ratio, among themes clearing 9.0 mentions/1k words.
   Food leads corpus-wide, so raw counts would make nearly everyone a Gourmand.
@@ -119,9 +136,7 @@ How 50 cities' official tourism sites describe themselves, and which cities soun
 ## Definition of done
 
 - `npm run dev` runs with no console errors, including during interaction.
-- Both prototypes answer the same question from the same 50 rows and the same
-  rate measures.
-- Each prototype has at least one link (highlight) and one filter (remove), and
+- The main page has at least one link (highlight) and one filter (remove), and
   every selection can be cleared.
 - Rates are labelled with units; the similarity caveat is visible in the UI, not
   just in this file.

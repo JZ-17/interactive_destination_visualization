@@ -12,14 +12,15 @@ git push -u origin main
 Then in the repo: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 The workflow in `.github/workflows/deploy.yml` builds and publishes on every push to main.
 
-That gives three public URLs:
+That gives these public URLs:
 
-- `https://<user>.github.io/<repo>/` — overview
-- `https://<user>.github.io/<repo>/prototype-a/` — Rank the 50
-- `https://<user>.github.io/<repo>/prototype-b/` — Spin the globe, pick two
+- `https://<user>.github.io/<repo>/` — the main page
+- `https://<user>.github.io/<repo>/board/` — boarding-pass intro (draft)
+- `https://<user>.github.io/<repo>/prototype-a/` — Rank the 50 (draft)
+- `https://<user>.github.io/<repo>/prototype-b/` — Spin the globe, pick two (draft)
+- `https://<user>.github.io/<repo>/story/` — site outline (draft)
 
-All three are deep-linkable: each prototype loads directly without going through
-the overview first. Verified locally by serving `build/` under a sub-path.
+All are deep-linkable and reachable from the menu bar at the top of every page.
 
 ## Why the paths work under a sub-path
 

@@ -234,9 +234,9 @@ it compares pitches rather than place names.
 
 **Distinctiveness** = `1 − cosine(city, corpus centroid)` on descriptive vectors.
 **Similarity** is cosine between two descriptive vectors; the corpus maximum is
-0.20, so treat it as a ranking, not a percentage.
+0.169, so treat it as a ranking, not a percentage.
 
-> Ghent → Sydney at 0.200 (Europe/Oceania) is the strongest pair in the data.
+> Paris ↔ Bucharest at 0.169 is the strongest pair in the data.
 > Mecca → Bucharest at 0.083 is better read as *Mecca has no twin*.
 
 **Signature word** is chosen by lift: the word's share of this city ÷ its share of all other

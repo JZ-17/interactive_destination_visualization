@@ -12,7 +12,7 @@
    *   two clicks        --SELECT--->  head-to-head
    */
   import { onMount } from 'svelte';
-  import { loadCities, AXIS_OPTIONS, axisById } from '$lib/data.js';
+  import { loadCities, AXIS_OPTIONS, axisById, rankSummary } from '$lib/data.js';
   import CardGrid from '$lib/CardGrid.svelte';
   import HeadToHead from '$lib/HeadToHead.svelte';
   import WordGraph from '$lib/WordGraph.svelte';
@@ -57,11 +57,10 @@
   // Aggregates recompute over `filtered`, never over the full 50.
   let stats = $derived.by(() => {
     if (!filtered.length) return null;
-    const vals = filtered.map((c) => measure.get(c)).sort((a, b) => a - b);
     const top = [...filtered].sort((a, b) => measure.get(b) - measure.get(a));
     return {
       n: filtered.length,
-      median: vals[Math.floor(vals.length / 2)],
+      median: rankSummary(filtered, measure).median,
       leader: top[0],
       trailer: top[top.length - 1]
     };
@@ -252,7 +251,8 @@
       />
       <p class="note hint">
         The <strong>#</strong> on each card is its rank across all fifty, so it
-        does not change when you filter to one category. Bar length is the
+        does not change when you filter to one category, and tied cities share
+        one. Bar length is the
         city's value against the highest in the corpus.
       </p>
     </section>
@@ -260,7 +260,7 @@
     <!-- Trends across the whole corpus, rather than one city at a time. -->
     <section class="trendwrap">
       <header class="trendhead">
-        <p class="eyebrow">Across all fifty</p>
+        <p class="eyebrow">Across {filtered.length === cities.length ? 'all fifty' : `these ${filtered.length}`}</p>
         <h2>What the corpus has in common</h2>
         <p class="note">
           Three views of the whole set rather than one city at a time: the
@@ -271,7 +271,7 @@
 
       <div class="panel trends">
         <WordGraph
-          {cities}
+          cities={filtered}
           poolId={wordPool}
           {selectedWord}
           {hoveredCity}
@@ -284,7 +284,7 @@
 
       <div class="panel trends">
         <ThemeOrbit
-          {cities}
+          cities={filtered}
           {hoveredCity}
           {picks}
           onhovercity={(c) => (hoveredCity = c)}

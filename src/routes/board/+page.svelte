@@ -36,7 +36,8 @@
     litWords,
     WORD_TYPES,
     DESCRIBING_POOL,
-    IATA
+    IATA,
+    SCRAPED
   } from '$lib/data.js';
   import BoardingPass from '$lib/BoardingPass.svelte';
   import PinMap from '$lib/PinMap.svelte';
@@ -166,14 +167,6 @@
   // Alternating sides, biggest first, so the two clouds stay balanced.
   let leftWords = $derived(words.filter((_, i) => i % 2 === 0));
   let rightWords = $derived(words.filter((_, i) => i % 2 === 1));
-
-  /**
-   * When the descriptions were read. Not in the CSV and not in
-   * data/METHODOLOGY.md — it is stated here because the reader needs to
-   * know how fresh the copy is, and a tourism site rewrites itself. If the
-   * corpus is ever re-scraped this is the one place to change.
-   */
-  const SCRAPED = 'September 2026';
 
   const now = new Date();
   const time = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -889,7 +882,7 @@
 
   /* ---------------- frame 1 ---------------- */
   .gate {
-    min-height: 100vh;
+    min-height: calc(100vh - var(--nav-h));
     display: flex;
     flex-direction: column;
     align-items: center;

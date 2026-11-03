@@ -7,7 +7,9 @@
    * The ranks are computed over the full 50 so a card keeps its true standing
    * even when the category filter hides some of its neighbours.
    */
+  import { flip } from 'svelte/animate';
   import CityCard from './CityCard.svelte';
+  import { rankCities } from './data.js';
 
   let {
     /** All 50, for ranking. */
@@ -30,17 +32,30 @@
     cityColor = false,
     /** Force an exact number of columns instead of auto-filling. */
     columns = null,
+    /** LINK: names to keep emphasised. The rest dim; none are removed. */
+    highlightNames = null,
+    /** Name -> a short label hung on that card. */
+    tags = null,
+    /** Name -> a colour; that card wears it, solid, like the reader's ticket. */
+    spots = null,
+    /** Print each portrait card's selling style in words. */
+    showVoice = false,
     onhovercity = () => {},
     onpickcity = () => {}
   } = $props();
 
   // Rank over all 50, descending on the measure: rank 1 = the highest value.
   let ranked = $derived.by(() => {
-    const byValue = [...cities].sort((a, b) => measure.get(b) - measure.get(a));
-    const rank = new Map(byValue.map((c, i) => [c.city, i + 1]));
-    const ordered = direction === 'desc' ? byValue : [...byValue].reverse();
+    const { sorted, rank } = rankCities(cities, measure);
+    const ordered = direction === 'desc'
+      ? sorted
+      : [...cities].sort((a, b) => measure.get(a) - measure.get(b) || a.city.localeCompare(b.city));
     return ordered.map((c) => ({ city: c, rank: rank.get(c.city) }));
   });
+
+  // Cards travel to their new rank, which shows what a re-sort changed.
+  const still = typeof window !== 'undefined'
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let shown = $derived(
     visibleNames ? ranked.filter((r) => visibleNames.has(r.city.city)) : ranked
@@ -55,7 +70,7 @@
   role="list"
 >
   {#each shown as r (r.city.city)}
-    <div role="listitem">
+    <div role="listitem" animate:flip={{ duration: still ? 0 : 320 }}>
       <CityCard
         city={r.city}
         {measure}
@@ -69,6 +84,10 @@
         {cityColor}
         picked={picks.includes(r.city.city)}
         hovered={hoveredCity === r.city.city}
+        dimmed={!!highlightNames && !highlightNames.has(r.city.city)}
+        tag={tags?.get(r.city.city) ?? null}
+        spot={spots?.get(r.city.city) ?? null}
+        {showVoice}
         onhover={onhovercity}
         onpick={onpickcity}
       />

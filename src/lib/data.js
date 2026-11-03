@@ -6,6 +6,7 @@
 // we use the same definition so our numbers and its `Twin (...)` columns agree.
 import { csv, json } from 'd3-fetch';
 import { feature } from 'topojson-client';
+import { median } from 'd3-array';
 import { base } from '$app/paths';
 import { COORDS } from './coords.js';
 
@@ -74,6 +75,28 @@ export const VOICE_SHORT = {
   'The Understated': 'no strong move'
 };
 
+/**
+ * A colour for each personality, worn by the boarding pass, the personality
+ * cards and the reader's own two cities on the main page. Stationery, not an
+ * encoding: the personality is always printed beside it, there is no legend,
+ * and the other 48 cards never use these. Every one carries the
+ * ticket's white type at 5:1 or better, and none sits near the two category
+ * colours. The Understated keeps the ticket's original brown.
+ */
+export const VOICE_TICKET = {
+  'The Braggart': '#8a3a4a',
+  'The Name-Dropper': '#5d4f7d',
+  'The Closer': '#a8432f',
+  'The Host': '#9c5670',
+  'The Sensualist': '#86406f',
+  'The Underdog': '#5f6b3a',
+  'The Bargain': '#2f7566',
+  'The Good Citizen': '#3f7350',
+  'The Cliche Machine': '#6f6478',
+  'The Understated': '#7b6a60'
+};
+export const TICKET_DEFAULT = VOICE_TICKET['The Understated'];
+
 /** What an archetype means: the theme that city over-indexes on. */
 export const ARCHETYPE_OF_THEME = {
   'Food': 'The Gourmand',
@@ -102,7 +125,7 @@ export const TWIN_METHODS = [
     sharedCol: 'Shared with twin',
     unit: 'cosine similarity',
     lowerIsCloser: false,
-    caveat: 'Cosine on descriptive TF-IDF. The corpus maximum is 0.20, so read it as a ranking, not a percentage.'
+    caveat: 'Cosine on descriptive TF-IDF. The corpus maximum is 0.169, so read it as a ranking, not a percentage.'
   },
   {
     id: 'jaccard',
@@ -213,6 +236,39 @@ export const AXIS_OPTIONS = [
 ];
 
 export const axisById = (id) => AXIS_OPTIONS.find((a) => a.id === id);
+
+/**
+ * Cities in measure order, highest first, plus each one's rank.
+ *
+ * Tied cities share a rank: 34 sites never mention families, and numbering
+ * them 17th to 50th would invent an order the data does not have. Ties list
+ * alphabetically so the order never depends on the CSV's.
+ */
+export function rankCities(cities, measure) {
+  const sorted = [...cities].sort(
+    (a, b) => measure.get(b) - measure.get(a) || a.city.localeCompare(b.city)
+  );
+  const rank = new Map();
+  let current = 0;
+  sorted.forEach((c, i) => {
+    if (i === 0 || measure.get(c) !== measure.get(sorted[i - 1])) current = i + 1;
+    rank.set(c.city, current);
+  });
+  return { sorted, rank };
+}
+
+/** The headline numbers for a ranking, over whichever cities are passed in. */
+export function rankSummary(cities, measure) {
+  if (!cities.length) return null;
+  const { sorted } = rankCities(cities, measure);
+  const low = measure.get(sorted[sorted.length - 1]);
+  return {
+    n: cities.length,
+    median: median(cities, measure.get),
+    leader: sorted[0],
+    lowest: sorted.filter((c) => measure.get(c) === low)
+  };
+}
 
 /**
  * The word pools the shared-vocabulary graph can switch between. Each is a
@@ -354,7 +410,7 @@ export async function loadCities(fetchImpl = fetch) {
   });
 
   // --- z-scored profiles -------------------------------------------------
-  // Theme rates are z-scored per dimension, or Food (corpus mean ~3.4/1k)
+  // Theme rates are z-scored per dimension, or Food (corpus mean ~20/1k)
   // would swamp Family on scale alone.
   const themeStats = {};
   THEMES.forEach((t) => {
@@ -489,6 +545,13 @@ export function nearestByTheme(city, cities, n = 5) {
 // --- the boarding-pass frame --------------------------------------------
 
 /**
+ * When the descriptions were read. Not in the CSV or data/METHODOLOGY.md, and
+ * stated in the UI because a tourism site can rewrite itself any week. If the
+ * corpus is ever re-scraped this is the one place to change.
+ */
+export const SCRAPED = 'September 2026';
+
+/**
  * The airport each city flies into, for the ticket. Not in the CSV — these
  * are real IATA codes, added here because a made-up code reads as a bug to
  * anyone who has ever flown.
@@ -552,6 +615,21 @@ export function commonWords(city, index, n = 14) {
 }
 
 /**
+ * Describing words two cities both use, rarest across the fifty first: a word
+ * only a few cities use says more about a pair than "cultural" does. `index`
+ * comes from `wordIndex(cities, DESCRIBING_POOL)`.
+ */
+export function sharedWords(a, b, index, n = 14) {
+  const normal = (c) => new Set(DESCRIBING_POOL.get(c).map((w) => w.trim().toLowerCase()).filter(Boolean));
+  const theirs = normal(b);
+  return [...normal(a)]
+    .filter((w) => theirs.has(w))
+    .map((word) => ({ word, cities: (index.get(word) ?? []).length }))
+    .sort((x, y) => x.cities - y.cities || x.word.localeCompare(y.word))
+    .slice(0, n);
+}
+
+/**
  * Words as the descriptions write them: letters, digits and apostrophes.
  * Both apostrophes — the sites use the curly one, and leaving it out split
  * "isn’t" into a bare "isn" that then showed up in the clouds as a word.
@@ -582,7 +660,7 @@ function phraseCount(text, phrase) {
  *   `per`   — inside one city's own description, keyed by city name.
  *
  * Both are RAW counts. Across the corpus that matters a lot, because the
- * descriptions differ about tenfold in length and the longest sites
+ * descriptions differ about seventeenfold in length and the longest sites
  * contribute more of everything; the UI says so where it shows these.
  */
 export function mentionIndex(cities) {

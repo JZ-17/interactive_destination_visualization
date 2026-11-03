@@ -15,6 +15,10 @@
     country = '',
     fromCode = 'BOS',
     fromCity = 'BOSTON',
+    fromCountry = '',
+    /** Printed on the stub in place of the boarding time. */
+    vibeOf = '',
+    vibe = '',
     question = 'WHAT DO CITIES WANT TO BE KNOWN FOR?',
     flight = 'CS1710',
     terminal = 'XCZ | JZ | NZ',
@@ -22,10 +26,6 @@
     time = '',
     date = ''
   } = $props();
-
-  // A long destination needs a smaller name line than "ROME" does. The code
-  // itself is always three letters, so only the name below it can overflow.
-  let nameSize = $derived(city.length > 14 ? 11 : city.length > 10 ? 12 : 13.5);
 
   /**
    * Bars for the stub, dealt from the destination code so each ticket carries
@@ -83,15 +83,17 @@
 
     <text class="tag" x="40" y="92">FROM</text>
     <text class="code" x="40" y="132">{fromCode}</text>
-    <text class="place" x="40" y="164">{fromCity}</text>
+    <text class="place" x="40" y="158">{fromCity.toUpperCase()}</text>
+    {#if fromCountry}<text class="country" x="40" y="176">{fromCountry.toUpperCase()}</text>{/if}
 
     <path class="jet" d={PLANE} />
 
     <text class="tag" x="262" y="92">TO</text>
     <text class="code" x="262" y="132">{code}</text>
-    <text class="place" x="262" y="164" style="font-size:{nameSize}px">
-      {city.toUpperCase()}{country ? ` · ${country.toUpperCase()}` : ''}
-    </text>
+    <!-- Two lines, not "CITY · COUNTRY": at one line the longest pairs ran off
+         the coloured panel, and white type on the white stub disappears. -->
+    <text class="place" x="262" y="158">{city.toUpperCase()}</text>
+    {#if country}<text class="country" x="262" y="176">{country.toUpperCase()}</text>{/if}
 
     <text class="tag sm" x="40" y="228">FLIGHT</text>
     <text class="val" x="40" y="248">{flight}</text>
@@ -108,8 +110,13 @@
     <text class="head dark" x="475" y="52">BOARDING PASS</text>
     <text class="tag sm dark" x="475" y="84">PASSENGER</text>
     <text class="val dark" x="475" y="104">YOU</text>
-    <text class="tag sm dark" x="475" y="136">BOARDING TIME</text>
-    <text class="val dark" x="475" y="156">{time}</text>
+    {#if vibe}
+      <text class="tag sm dark" x="475" y="136">{vibeOf.toUpperCase()}’S VIBE</text>
+      <text class="val dark" x="475" y="156">{vibe}</text>
+    {:else}
+      <text class="tag sm dark" x="475" y="136">BOARDING TIME</text>
+      <text class="val dark" x="475" y="156">{time}</text>
+    {/if}
     <text class="tag sm dark" x="475" y="188">DATE</text>
     <text class="val dark" x="475" y="208">{date}</text>
     {#each bars as b}
@@ -126,7 +133,11 @@
     overflow: visible;
   }
 
-  .card { fill: var(--ticket); }
+  /* The one transition on this ticket: it answers picking a city. */
+  .card { fill: var(--ticket); transition: fill 0.4s ease; }
+  @media (prefers-reduced-motion: reduce) {
+    .card { transition: none; }
+  }
   .stub { fill: #fff; }
   .perf { stroke: #fff; stroke-width: 1; }
   .jet  { fill: #fff; }
@@ -144,5 +155,6 @@
   .tag.sm{ font-size: 10px; letter-spacing: 0.045em; }
   .code  { font-size: 36px; letter-spacing: 0.01em; }
   .place { font-size: 13.5px; letter-spacing: 0.04em; }
+  .country { font-size: 10.5px; letter-spacing: 0.05em; opacity: 0.85; }
   .val   { font-size: 14px; }
 </style>

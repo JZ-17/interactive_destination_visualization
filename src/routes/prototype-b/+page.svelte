@@ -15,7 +15,7 @@
    * and ranks all fifty; B starts from a place and drills into a pair.
    */
   import { onMount } from 'svelte';
-  import { loadCities, loadCountries, greatCircleKm, AXIS_OPTIONS, axisById } from '$lib/data.js';
+  import { loadCities, loadCountries, greatCircleKm, AXIS_OPTIONS, axisById, rankCities } from '$lib/data.js';
   import Globe from '$lib/Globe.svelte';
   import CardGrid from '$lib/CardGrid.svelte';
   import CityCard from '$lib/CityCard.svelte';
@@ -75,10 +75,7 @@
   // The slots render the real card, so they need the same scale and rank the
   // deck uses — ranks over all 50, so a card keeps its standing in the slot.
   let maxMeasure = $derived(Math.max(1e-9, ...cities.map((c) => measure.get(c))));
-  let rankOf = $derived.by(() => {
-    const sorted = [...cities].sort((x, y) => measure.get(y) - measure.get(x));
-    return new Map(sorted.map((c, i) => [c.city, i + 1]));
-  });
+  let rankOf = $derived(rankCities(cities, measure).rank);
 
   let archetypes = $derived(
     [...new Set(cities.map((c) => c.archetype))].sort((a, b) => a.localeCompare(b))
@@ -322,7 +319,7 @@
       </div>
 
       <div class="hero-foot">
-        <Legend note={false} />
+        <Legend note={false} markers />
         <span class="face">{onFace} of {cities.length} cities on this face</span>
         <span class="cue" aria-hidden="true">Scroll for the wider picture ↓</span>
       </div>
@@ -497,7 +494,7 @@
      this page rather than the document, so the snap never leaks to other
      routes. */
   .snap {
-    height: 100dvh;
+    height: calc(100dvh - var(--nav-h));
     overflow-y: auto;
     scroll-snap-type: y mandatory;
     scroll-behavior: smooth;
@@ -511,7 +508,7 @@
      and the sphere could only reach 560. Overlaid, it reaches ~720. */
   .hero {
     position: relative;
-    height: 100dvh;
+    height: calc(100dvh - var(--nav-h));
     overflow: hidden;
   }
   /* Globe and inventory share the hero. The globe keeps the centre of
