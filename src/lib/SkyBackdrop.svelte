@@ -11,11 +11,13 @@
   let near = $derived(still ? 0 : progress * -520);
 </script>
 
-<svg class="sky-art" viewBox="0 0 1200 760" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+<!-- Three stacked layers, far clouds, plane, near clouds, all on one artboard.
+     The plane gets an SVG of its own because a browser may rasterise an SVG
+     holding a blur filter as one soft bitmap, and the jet would blur with it. -->
+<svg class="sky-art sky-back" viewBox="0 0 1200 760" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
   <defs>
     <!-- A blur spreads past the shape's box, and the default filter region clips it. -->
     <filter id="sky-soft" x="-30%" y="-150%" width="160%" height="400%"><feGaussianBlur stdDeviation="30" /></filter>
-    <filter id="sky-softer" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="1.6" /></filter>
   </defs>
   <g fill="#fff" filter="url(#sky-soft)" opacity="0.45" transform="translate({far} 0)">
     <ellipse cx="120" cy="170" rx="210" ry="44" />
@@ -23,9 +25,12 @@
     <ellipse cx="640" cy="90" rx="190" ry="30" />
     <ellipse cx="1400" cy="120" rx="220" ry="40" />
   </g>
-  {#if plane}
-    <!-- An airliner flying straight at you: tail behind, then wings, then nose. -->
-    <g filter="url(#sky-softer)" transform="rotate({bank} 600 400) translate(0 {bob})">
+</svg>
+{#if plane}
+  <svg class="sky-art" viewBox="0 0 1200 760" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <!-- An airliner flying straight at you: tail behind, then wings, then nose.
+         Unfiltered, so its edges stay crisp; only the clouds are soft. -->
+    <g class="plane" transform="rotate({bank} 600 400) translate(0 {bob})">
       <g fill="#f4f7fd">
         <path d="M590 330 L584 176 Q600 164 616 176 L610 330 Z" />
         <path d="M600 292 L436 272 L432 286 L600 328 L768 286 L764 272 Z" />
@@ -45,7 +50,9 @@
       <path d="M600 354 V388" stroke="#fff" stroke-width="3" />
       <ellipse cx="600" cy="478" rx="52" ry="20" fill="#e3e9f7" />
     </g>
-  {/if}
+  </svg>
+{/if}
+<svg class="sky-art" viewBox="0 0 1200 760" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
   <g fill="#fff" filter="url(#sky-soft)" opacity="0.7" transform="translate({near} 0)">
     <ellipse cx="200" cy="700" rx="280" ry="60" />
     <ellipse cx="1030" cy="740" rx="260" ry="56" />
@@ -61,10 +68,13 @@
     width: 100%;
     height: 100%;
     z-index: -1;
+  }
+  .sky-back {
     /* Out here rather than in the artwork: "slice" crops the artwork on a wide
        screen, and the page's next band starts on exactly this last stop. */
     background: linear-gradient(180deg, #e8ebf7 0%, #cfd9f3 45%, #a6c0ef 100%);
   }
+  .plane { shape-rendering: geometricPrecision; }
   /* Clouds drift to the stage's edge; this lets them sink into the band below
      instead of being cut off by it. */
   .sky-floor {

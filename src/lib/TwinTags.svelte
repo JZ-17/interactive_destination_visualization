@@ -2,11 +2,13 @@
   /**
    * Who a city sounds like, four ways, as luggage tags hung from one rail. Four
    * tags on purpose: the definitions rarely agree, and seeing them disagree is
-   * the honest answer. Clicking a tag flies on to that city.
+   * the honest answer. With `onpick` a tag is a button that flies on to that
+   * city; without it the tags are for reading only, as in the one-city
+   * journey, where comparing waits for the arrival.
    */
   import { TWIN_METHODS } from './data.js';
 
-  let { city, current = '', onpick = () => {} } = $props();
+  let { city, current = '', onpick = null } = $props();
 
   let tags = $derived(
     TWIN_METHODS.map((m) => ({
@@ -21,15 +23,21 @@
   };
 </script>
 
+{#snippet face(t)}
+  <span class="how">{t.label}</span>
+  <span class="who">{t.partner}</span>
+  <span class="why">{t.shared.length ? `Both use: ${t.shared.join(', ')}` : PLAIN[t.id]}</span>
+{/snippet}
+
 <div class="rail">
-  <ul>
+  <ul class:live={!!onpick}>
     {#each tags as t, i (t.id)}
       <li style="--swing:{[-2.5, 1.8, -1.4, 2.6][i]}deg">
-        <button class="tag" aria-pressed={current === t.partner} onclick={() => onpick(t.partner)}>
-          <span class="how">{t.label}</span>
-          <span class="who">{t.partner}</span>
-          <span class="why">{t.shared.length ? `Both use: ${t.shared.join(', ')}` : PLAIN[t.id]}</span>
-        </button>
+        {#if onpick}
+          <button class="tag" aria-pressed={current === t.partner} onclick={() => onpick(t.partner)}>{@render face(t)}</button>
+        {:else}
+          <div class="tag" class:on={current === t.partner}>{@render face(t)}</div>
+        {/if}
       </li>
     {/each}
   </ul>
@@ -58,7 +66,8 @@
     transform-origin: 50% 0;
     transition: transform 0.25s ease;
   }
-  li:hover { transform: rotate(0deg); }
+  /* Only a tag that does something straightens up when pointed at. */
+  .live li:hover { transform: rotate(0deg); }
   /* The string. */
   li::before {
     content: '';
@@ -95,9 +104,11 @@
     border: 2px solid var(--ticket);
     background: #f3f6fb;
   }
-  .tag:hover { background: #fff; }
-  .tag[aria-pressed='true'] { background: var(--ticket); color: #fff; border-color: var(--ticket); }
-  .tag[aria-pressed='true'] .how, .tag[aria-pressed='true'] .why { color: #fff; }
+  .live .tag:hover { background: #fff; }
+  /* The city already being compared with, if it is one of the four. */
+  .tag[aria-pressed='true'], .tag.on { background: var(--ticket); color: #fff; border-color: var(--ticket); }
+  .tag[aria-pressed='true'] .how, .tag[aria-pressed='true'] .why,
+  .tag.on .how, .tag.on .why { color: #fff; }
   .tag:focus-visible { outline: 2px solid var(--text-primary); outline-offset: -4px; }
   .how { font-size: 0.76rem; color: var(--text-muted); }
   .who { font-family: var(--display); font-size: 1.55rem; line-height: 1.1; }

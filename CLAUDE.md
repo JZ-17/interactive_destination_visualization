@@ -20,12 +20,18 @@ How 50 cities' official tourism sites describe themselves, and which cities soun
 ## Site structure
 
 - `/` is **the main page and the only one under active design**: a scrollable
-  flight that starts at the boarding pass, whose FROM and TO are the page's two
-  dropdowns. One city gets a journey about how it compares to the other 49 (its
-  shared words, the two word boards, what is unique to it, who it sounds like).
-  Two cities get a journey about each other (personality cards, themes, selling
-  moves, shared words). Both land on Rank the 50 with the reader's cities picked
-  out. Add new views slowly; the globe is out for now.
+  flight that starts at the boarding pass. FROM is always Boston (printed, not
+  a control); TO is the page's one dropdown at the gate, so a first-time reader
+  makes exactly one choice. The destination gets a journey about how it
+  compares to the other 49 (its shared words, the two word boards, what is
+  unique to it, who it sounds like, Rank the 50). Only then does an arrival
+  scene ("You've arrived in …") offer a second city, on two stacked passes
+  leaving from that city: ROUND TRIP (in front) compares the two, adding a
+  second leg below (personality cards, themes, selling moves, shared words);
+  ONE WAY flies on and starts a fresh journey with the next city, its stamp
+  and strip reading FROM the city just left. Do not reintroduce a second city at the gate: offering
+  the comparison up front was found overwhelming. A stacked one-way /
+  round-trip pair of passes was tried at the gate and moved to the arrival. Add new views slowly; the globe is out for now.
 - `/board`, `/prototype-a`, `/prototype-b` and `/story` are earlier drafts, kept
   in the menu bar for reference. Prototype B's dark skin predates the light-only
   rule and stays with the draft.
@@ -83,6 +89,12 @@ How 50 cities' official tourism sites describe themselves, and which cities soun
   value bar, with category moved to a translucent border round the card. Same
   device as the country tints: identity only, no legend, no meaning. Hues are
   assigned off alphabetical order so they never shift when the deck re-sorts.
+  Rank the 50's dot strip on the main page uses the same device: each dot is
+  the city's hue inside a ring in its category colour (white gap between), and
+  the reader's cities have their ticket colour inside the ring.
+  Its deck draws each city as a small sideways boarding pass (`ticket` on CityCard):
+  the left panel in the city's hue at low saturation, darkened until white type
+  clears 5:1, with category in the outline. The last row is centred.
 - **Country tints are basemap separation, not an encoding.** Golden-angle hues
   at fixed low saturation / high lightness, the way a political map gives
   neighbours different colours. There is no legend for them and nothing in the

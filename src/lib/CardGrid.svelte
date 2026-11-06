@@ -40,6 +40,12 @@
     spots = null,
     /** Print each portrait card's selling style in words. */
     showVoice = false,
+    /** Draw each card as a small boarding pass. */
+    ticket = false,
+    /** Fill whole rows edge to edge and centre the last, part-filled one. */
+    centered = false,
+    /** Centred only: the narrowest a card may get before a column drops. */
+    minWidth = 156,
     onhovercity = () => {},
     onpickcity = () => {}
   } = $props();
@@ -61,12 +67,24 @@
     visibleNames ? ranked.filter((r) => visibleNames.has(r.city.city)) : ranked
   );
   let max = $derived(Math.max(1e-9, ...cities.map((c) => measure.get(c))));
+
+  // Centred: a grid cannot centre a short last row, so this is a wrapping row
+  // of cards sized here to exactly the width auto-fill would have given them.
+  const COL_GAP = 12;
+  let width = $state(0);
+  let cardW = $derived.by(() => {
+    if (!centered || !width) return null;
+    const cols = Math.max(1, Math.floor((width + COL_GAP) / (minWidth + COL_GAP)));
+    return (width - (cols - 1) * COL_GAP) / cols;
+  });
 </script>
 
 <div
   class="grid"
   class:fixed-cols={!!columns}
-  style={columns ? `--cols: ${columns};` : undefined}
+  class:centered
+  style={columns ? `--cols: ${columns};` : cardW ? `--card-w: ${cardW}px;` : undefined}
+  bind:clientWidth={width}
   role="list"
 >
   {#each shown as r (r.city.city)}
@@ -88,6 +106,7 @@
         tag={tags?.get(r.city.city) ?? null}
         spot={spots?.get(r.city.city) ?? null}
         {showVoice}
+        {ticket}
         onhover={onhovercity}
         onpick={onpickcity}
       />
@@ -115,5 +134,12 @@
       grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
     }
   }
+  .grid.centered {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    column-gap: 12px;
+  }
+  .grid.centered > :global(div) { flex: 0 0 var(--card-w, 156px); }
   .empty { padding: 28px; text-align: center; }
 </style>

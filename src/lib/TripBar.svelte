@@ -1,20 +1,24 @@
 <script>
   /**
-   * The ticket once it has scrolled away: the same two dropdowns and the same
-   * colour, plus one dot per scene in this journey so a long scroll can be
-   * skipped through.
+   * The ticket once it has scrolled away: Boston to the destination in the
+   * same colour, plus one dot per scene in this journey so a long scroll can be
+   * skipped through. The second city joins the strip only once the reader has
+   * picked one at the arrival, so it never offers that choice early.
    */
   import CitySelect from './CitySelect.svelte';
   import { PLANE } from './ticketArt.js';
 
   let {
+    /** Where this flight left from: Boston, or the city flown on from. */
+    home = 'Boston',
     cities = [],
-    from = '',
-    to = '',
+    dest = '',
+    compare = '',
     color = '#7b6a60',
     stops = [],
     active = '',
-    onpick = () => {},
+    ondest = () => {},
+    oncompare = () => {},
     onjump = () => {}
   } = $props();
 </script>
@@ -22,13 +26,19 @@
 <div class="bar" style="background:{color}" role="group" aria-label="Your flight">
   <span class="leg">
     <span class="word">From</span>
-    <CitySelect id="bar-from" value={from} {cities} taken={to} clearable label="Flying from" placeholder="Choose" onpick={(v) => onpick('from', v)} />
+    <span class="home">{home}</span>
   </span>
   <svg class="jet" viewBox="188 107 38 37" aria-hidden="true"><path d={PLANE} /></svg>
   <span class="leg">
     <span class="word">To</span>
-    <CitySelect id="bar-to" value={to} {cities} taken={from} clearable label="Flying to" placeholder="Choose" onpick={(v) => onpick('to', v)} />
+    <CitySelect id="bar-to" value={dest} {cities} label="Flying to" placeholder="Choose" onpick={ondest} />
   </span>
+  {#if compare}
+    <span class="leg">
+      <span class="word">Compared with</span>
+      <CitySelect id="bar-compare" value={compare} {cities} taken={dest} clearable label="Compared with" placeholder="Choose" onpick={oncompare} />
+    </span>
+  {/if}
   <nav class="stops" aria-label="Scenes">
     {#each stops as s (s.id)}
       <button
@@ -66,6 +76,7 @@
   }
   .leg { display: inline-flex; align-items: center; gap: 7px; }
   .word { font-size: 0.8rem; opacity: 0.9; }
+  .home { font-weight: 700; }
   .jet { width: 20px; flex: none; fill: #fff; }
   .stops { display: inline-flex; align-items: center; gap: 2px; margin-left: 4px; }
   .stops button {

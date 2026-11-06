@@ -1,6 +1,6 @@
 <script>
   /**
-   * Rank the 50, where both journeys land. The reader's cities stay visible at
+   * Rank the 50, where the journey lands. The reader's cities stay visible at
    * three distances: flagged on the runway, named in the line above it, and as
    * the two cards in the deck that wear their ticket colour.
    *
@@ -15,7 +15,7 @@
   import RankRunway from './RankRunway.svelte';
   import Legend from './Legend.svelte';
 
-  let { cities = [], from = '', to = '', onpick = () => {} } = $props();
+  let { cities = [], dest = '', compare = '', onpick = () => {} } = $props();
 
   let measureKey = $state('theme:Food');
   let direction = $state('desc');
@@ -36,7 +36,7 @@
   let decimals = $derived(Math.max(0, ...cities.map(measure.get)) <= 1.5 ? 2 : 1);
   const fmt = (v) => v.toFixed(decimals);
 
-  let picks = $derived([from, to].filter(Boolean));
+  let picks = $derived([dest, compare].filter(Boolean));
   let rank = $derived(rankCities(cities, measure).rank);
   let held = $derived(cities.filter((c) => picks.includes(c.city)));
   let heldLine = $derived(
@@ -52,8 +52,8 @@
     const kind = (name) =>
       cities.find((c) => c.city === name)?.category === 'hidden' ? 'hidden gem' : 'big destination';
     const out = new Map();
-    if (from) out.set(from, `From, ${kind(from)}`);
-    if (to) out.set(to, `To, ${kind(to)}`);
+    if (dest) out.set(dest, `Destination, ${kind(dest)}`);
+    if (compare) out.set(compare, `Compared, ${kind(compare)}`);
     return out;
   });
   let spots = $derived(new Map(held.map((c) => [c.city, VOICE_TICKET[c.personality]])));
@@ -63,9 +63,8 @@
   <header>
     <h2>Rank the 50</h2>
     <p>
-      {picks.length === 2
-        ? 'Every tourism board, sorted by how much it talks about one thing. Click a card to make it your new destination.'
-        : 'Every tourism board, sorted by how much it talks about one thing. Click a card to compare that city with yours.'}
+      Every tourism board, sorted by how much it talks about one thing.
+      {compare ? `Click a card to compare it with ${dest} instead.` : `Click a card to compare that city with ${dest}.`}
     </p>
   </header>
 
@@ -83,6 +82,7 @@
     cities={filtered}
     {measure}
     {picks}
+    {spots}
     {hoveredCity}
     onhover={(c) => (hoveredCity = c)}
     {onpick}
@@ -126,8 +126,8 @@
     <div class="legend-box"><Legend note={false} /></div>
   </div>
   <p class="legend-note">
-    A card’s border shows the category, and its tint only tells cities apart. Yours
-    wear their ticket colour. Top line: the theme a city over-indexes on. Bottom: how it sells. Rank is out of
+    A ticket’s outline and a dot’s ring show the category; the colour inside
+    only tells cities apart. Yours wear their ticket colour. Top line: the theme a city over-indexes on. Bottom: how it sells. Rank is out of
     all 50, and ties share one.
   </p>
 
@@ -144,6 +144,9 @@
       portrait={true}
       cityColor={true}
       showVoice={true}
+      ticket={true}
+      centered={true}
+      minWidth={272}
       onhovercity={(c) => (hoveredCity = c)}
       onpickcity={onpick}
     />

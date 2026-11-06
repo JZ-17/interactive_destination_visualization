@@ -46,7 +46,7 @@
       </div>
     </div>
 
-    <p class="payoff" class:in={settled}>Two pitches. Flip a card to read its fine print.</p>
+    <p class="payoff" class:in={settled}>Two pitches. Click a card to read its fine print.</p>
   </div>
 </section>
 

@@ -1,5 +1,6 @@
 <script>
-  import { VOICE_BLURB, VOICE_SHORT } from './data.js';
+  import { hsl } from 'd3-color';
+  import { VOICE_BLURB, VOICE_SHORT, IATA } from './data.js';
 
   /**
    * One city, as a card. The measure currently being sorted on is the card's
@@ -35,6 +36,8 @@
     spot = null,
     /** Portrait only: print the selling style in words, not just on hover. */
     showVoice = false,
+    /** A small boarding pass: coloured top with the code, perforation, white stub. */
+    ticket = false,
     onhover = () => {},
     onpick = () => {}
   } = $props();
@@ -43,6 +46,22 @@
   let pct = $derived(max > 0 ? Math.min(100, (value / max) * 100) : 0);
   // Obscurity and the share measures read better as 2 dp; rates as 1.
   let decimals = $derived(max <= 1.5 ? 2 : 1);
+
+  /**
+   * The ticket's top in the city's own hue, darkened only as far as white type
+   * needs for 5:1. Low saturation, so the deck sits in the same muted range as
+   * the boarding pass without borrowing its colours, which stay the reader's.
+   */
+  const lum = (v) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  function panelFor(h) {
+    for (let l = 0.46; l > 0.2; l -= 0.01) {
+      const c = hsl(h, 0.34, l).rgb();
+      const L = 0.2126 * lum(c.r) + 0.7152 * lum(c.g) + 0.0722 * lum(c.b);
+      if (1.05 / (L + 0.05) >= 5) return c.formatHex();
+    }
+    return '#3d4466';
+  }
+  let panel = $derived(ticket ? (spot ?? panelFor(city.hue)) : null);
 </script>
 
 <!-- A div rather than a <button>: Chrome will not start a native drag from a
@@ -62,7 +81,8 @@
   class:draggable
   class:gem={city.category === 'hidden'}
   class:picked
-  class:spot={!!spot}
+  class:spot={!!spot && !ticket}
+  class:ticket
   class:hovered
   class:dimmed
   role="button"
@@ -79,7 +99,27 @@
   onblur={() => onhover(null)}
 >
 {#if tag}<span class="tag">{tag}</span>{/if}
-{#if portrait}
+{#if ticket}
+  <div class="tk-top" style="background:{panel}">
+    <div class="tk-head">
+      <span class="tk-type">{city.archetype}</span>
+      <span class="tk-rank">#{rank}</span>
+    </div>
+    <strong class="tk-code">{IATA[city.city] ?? ''}</strong>
+    <span class="tk-city">{city.city}</span>
+    <span class="tk-country">{city.country}</span>
+  </div>
+  <div class="tk-perf" aria-hidden="true"></div>
+  <div class="tk-stub">
+    <div class="value">
+      <strong>{value.toFixed(decimals)}</strong>
+      <span class="unit">{measure.label}</span>
+    </div>
+    <div class="track"><div class="fill" style="width:{pct}%{spot ? `; background:${spot}` : ''}"></div></div>
+    <span class="chip muted" title="{city.personality} — {VOICE_BLURB[city.personality] ?? ''}">{city.personality}</span>
+    {#if showVoice}<p class="voice">{VOICE_SHORT[city.personality] ?? ''}</p>{/if}
+  </div>
+{:else if portrait}
   <p class="type">{city.archetype}</p>
   <div class="face">
     <h3>{city.city}</h3>
@@ -296,6 +336,85 @@
     font-size: 0.58rem; padding: 2px 5px;
     max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
+
+  /* Ticket: the boarding pass in miniature, lying the same way as the big one.
+     Coloured panel on the left in the city's hue (or the reader's ticket
+     colour) with the code the way the pass prints it, a perforation with a
+     notch top and bottom, then a white stub on the right with the number.
+     Category stays where the dot strip puts it, in the outline. */
+  .card.ticket {
+    flex-direction: row;
+    aspect-ratio: auto;
+    gap: 0;
+    padding: 0;
+    min-height: 100%;
+    background: #fff;
+    border: 2px solid rgba(22, 104, 227, 0.55);
+    border-radius: 12px;
+    box-shadow: 0 6px 16px rgba(25, 30, 59, 0.07);
+    font-family: var(--display);
+  }
+  .card.ticket.gem { border-color: rgba(199, 122, 0, 0.6); }
+  /* The tag hangs over the coloured panel, clear of the top notch, and above
+     it: on the right it ran across the perforation and the notch bit into
+     its first letters. */
+  .card.ticket .tag { left: 12px; right: auto; z-index: 3; }
+  .card.ticket.picked { border-color: var(--text-primary); box-shadow: 0 0 0 1px var(--text-primary), 0 10px 22px rgba(25, 30, 59, 0.16); }
+  .card.ticket:hover, .card.ticket.hovered { border-color: var(--text-muted); }
+  .card.ticket.picked:hover, .card.ticket.picked.hovered { border-color: var(--text-primary); }
+  .tk-top {
+    flex: 1 1 56%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 10px 12px 11px;
+    border-radius: 10px 0 0 10px;
+    color: #fff;
+    -webkit-font-smoothing: antialiased;
+  }
+  .tk-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; margin-bottom: auto; padding-bottom: 10px; }
+  .tk-type { font-size: 0.58rem; letter-spacing: 0.07em; text-transform: uppercase; opacity: 0.92; }
+  .tk-rank { font-size: 0.72rem; font-variant-numeric: tabular-nums; }
+  .tk-code { font-size: 1.85rem; font-weight: 400; line-height: 1; letter-spacing: 0.01em; }
+  .tk-city { margin-top: 5px; font-size: 0.72rem; letter-spacing: 0.04em; text-transform: uppercase; overflow-wrap: anywhere; }
+  .tk-country { font-size: 0.56rem; letter-spacing: 0.05em; text-transform: uppercase; opacity: 0.85; }
+  /* The tear line, upright, with a half-circle bitten out of the top and
+     bottom edges. Each notch is a page-coloured circle in the outline's
+     colour, centred on the outline and clipped to its inner half (plus the
+     outline's width, so the straight outline does not run across the bite).
+     The perforation is inset 9px, and the outline's middle sits 1px further
+     out: 8px radius + 10px = 18px. */
+  .tk-perf { position: relative; flex: none; width: 0; border-left: 1.5px dashed rgba(25, 30, 59, 0.2); margin: 9px 0; }
+  .tk-perf::before, .tk-perf::after {
+    content: '';
+    position: absolute;
+    left: -9px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #f3f6fb;
+    border: 2px solid rgba(22, 104, 227, 0.55);
+    box-sizing: border-box;
+  }
+  .card.ticket.gem .tk-perf::before, .card.ticket.gem .tk-perf::after { border-color: rgba(199, 122, 0, 0.6); }
+  .card.ticket.picked .tk-perf::before, .card.ticket.picked .tk-perf::after { border-color: var(--text-primary); }
+  .tk-perf::before { top: -18px; clip-path: inset(calc(50% - 1.5px) 0 0 0); }
+  .tk-perf::after { bottom: -18px; clip-path: inset(0 0 calc(50% - 1.5px) 0); }
+  .tk-stub {
+    flex: 1 1 44%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 12px;
+    font-family: var(--font);
+  }
+  .tk-stub .value { margin-top: 0; }
+  .tk-stub .value strong { font-size: 1.3rem; }
+  .tk-stub .unit { font-size: 0.6rem; }
+  .tk-stub .chip { align-self: flex-start; font-size: 0.58rem; padding: 2px 6px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .tk-stub .voice { margin-top: 0; min-height: 0; }
 
   /* Dense: one line of identity, one number, one bar. Built to stack. */
   .card.draggable { cursor: grab; }

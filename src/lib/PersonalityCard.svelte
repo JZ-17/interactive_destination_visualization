@@ -5,7 +5,8 @@
    * The card takes its personality's colour, like the ticket. Type is sized in
    * cqw against each face, so the same card reads at any size. `rotation` lets
    * a scene turn it with scrolling; a click flips it on its own inner axis, so
-   * the two never fight.
+   * the two never fight. Clicking anywhere on the card flips it; the Flip
+   * button stays as the keyboard's way in and as the visible hint.
    */
   import Emblem from './Emblem.svelte';
   import { PERSONALITIES, VOICE_BLURB, VOICE_SHORT, VOICE_TICKET, TICKET_DEFAULT } from './data.js';
@@ -28,10 +29,19 @@
       .slice(0, 2)
   );
   const rays = Array.from({ length: 28 }, (_, i) => (i * 360) / 28);
+
+  /** A click on the card itself, unless it landed on the back's site link. */
+  function flipFromCard(e) {
+    if (!canFlip || e.target.closest('a')) return;
+    flipped = !flipped;
+  }
 </script>
 
-<div class="scene" style="--c:{color}; transform: rotate({tilt}deg)">
-  <div class="turn" style="transform: rotateY({rotation}deg)">
+<div class="scene" class:can-flip={canFlip} style="--c:{color}; transform: rotate({tilt}deg)">
+  <!-- Mouse and touch only: the Flip button below is the same action for
+       the keyboard, so the card itself is not a second tab stop. -->
+  <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+  <div class="turn" style="transform: rotateY({rotation}deg)" onclick={flipFromCard}>
     <div class="flip" class:flipped>
       <!-- FRONT -->
       <div class="face front">
@@ -194,6 +204,10 @@
     white-space: nowrap;
   }
   .scene .flipper[aria-pressed='true'] { background: #fff; color: #191e3b; }
+  .scene.can-flip .turn { cursor: pointer; }
+  /* Pointing anywhere on the card wakes the button, so it is clear what a
+     click will do. */
+  .scene.can-flip:hover .flipper { background: #191e3b; color: #fff; }
   .scene .flipper:focus-visible { outline: 2px solid #191e3b; outline-offset: 2px; }
 
   @media (prefers-reduced-motion: reduce) {

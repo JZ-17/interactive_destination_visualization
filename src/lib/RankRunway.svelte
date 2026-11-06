@@ -2,7 +2,10 @@
   /**
    * Every city as one dot along the measure, so the shape of the ranking and
    * where your cities stand in it are visible before reading a single card.
-   * Dots stack where values coincide; position is the value, colour the category.
+   * Dots stack where values coincide. Position is the value; each dot is drawn
+   * the way its card is, the city's own hue inside a ring in its category
+   * colour, so a dot and its card read as the same city. The reader's cities
+   * wear their ticket colour inside the ring instead, as their cards do.
    */
   import { scaleLinear } from 'd3-scale';
 
@@ -10,6 +13,8 @@
     cities = [],
     measure,
     picks = [],
+    /** The reader's cities and their ticket colours. */
+    spots = new Map(),
     hoveredCity = null,
     onhover = () => {},
     onpick = () => {}
@@ -37,7 +42,7 @@
       bins.get(key).push(c);
     }
     const tallest = Math.max(1, ...[...bins.values()].map((b) => b.length));
-    const step = Math.min(11, STACK_H / tallest);
+    const step = Math.min(13, STACK_H / tallest);
     const out = [];
     for (const group of bins.values()) {
       group.forEach((c, i) => {
@@ -56,6 +61,9 @@
       anchor: d.x < 60 ? 'start' : d.x > width - 60 ? 'end' : 'middle'
     }));
   });
+  /** The same hue the city's card uses for its bar. */
+  const cityFill = (c) => `hsl(${c.hue} 58% 47%)`;
+
   let hoverDot = $derived(
     dots.find((d) => d.city.city === hoveredCity && !picks.includes(d.city.city)) ?? null
   );
@@ -72,32 +80,29 @@
 
     {#each dots as d (d.city.city)}
       {#if !picks.includes(d.city.city)}
-        <circle
+        <g
           class="dot"
           class:gem={d.city.category === 'hidden'}
           class:hovered={hoveredCity === d.city.city}
-          cx={d.x}
-          cy={d.y}
-          r="5"
           role="presentation"
           onmouseenter={() => onhover(d.city.city)}
           onmouseleave={() => onhover(null)}
           onclick={() => onpick(d.city.city)}
-        ><title>{d.city.city}: {measure.get(d.city).toFixed(1)}</title></circle>
+        >
+          <title>{d.city.city}: {measure.get(d.city).toFixed(1)}</title>
+          <circle class="ring" cx={d.x} cy={d.y} r="6.2" />
+          <circle class="core" cx={d.x} cy={d.y} r="3.6" style="fill:{cityFill(d.city)}" />
+        </g>
       {/if}
     {/each}
 
     {#each flags as f (f.city.city)}
       <line class="flagpole" x1={f.x} x2={f.x} y1={f.y} y2={M.top - 10 - f.lift} />
-      <circle
-        class="held"
-        class:gem={f.city.category === 'hidden'}
-        cx={f.x}
-        cy={f.y}
-        r="7.5"
-        role="presentation"
-        onclick={() => onpick(f.city.city)}
-      ><title>{f.city.city}: {measure.get(f.city).toFixed(1)}</title></circle>
+      <g class="held" class:gem={f.city.category === 'hidden'} role="presentation" onclick={() => onpick(f.city.city)}>
+        <title>{f.city.city}: {measure.get(f.city).toFixed(1)}</title>
+        <circle class="ring" cx={f.x} cy={f.y} r="9" />
+        <circle class="core" cx={f.x} cy={f.y} r="5.4" style="fill:{spots.get(f.city.city) ?? cityFill(f.city)}" />
+      </g>
       <text class="flag" x={f.x} y={M.top - 14 - f.lift} text-anchor={f.anchor}>{f.city.city}</text>
     {/each}
 
@@ -113,11 +118,15 @@
   .base { stroke: var(--axis); }
   .tickmark { stroke: var(--axis); }
   .tick, .unit { font-size: 11px; fill: var(--text-secondary); }
-  .dot { fill: var(--big); stroke: #f3f6fb; stroke-width: 1.5; cursor: pointer; }
-  .dot.gem { fill: var(--gem); }
-  .dot.hovered { stroke: var(--text-primary); stroke-width: 2; }
-  .held { fill: var(--big); stroke: var(--text-primary); stroke-width: 3; cursor: pointer; }
-  .held.gem { fill: var(--gem); }
+  /* The ring is the category; a thin white gap keeps it from melting into a
+     core whose hue happens to sit near blue or amber, and the page-coloured
+     edge separates dots that stack. */
+  .dot, .held { cursor: pointer; }
+  .ring { fill: var(--big); stroke: #f3f6fb; stroke-width: 1.2; }
+  .gem .ring { fill: var(--gem); }
+  .core { stroke: #fff; stroke-width: 1.1; }
+  .dot.hovered .ring { stroke: var(--text-primary); stroke-width: 2; }
+  .held .ring { stroke: var(--text-primary); stroke-width: 2.5; }
   .flagpole { stroke: var(--text-primary); stroke-width: 1.2; }
   /* The halo keeps a neighbour's flagpole off the letters. */
   .flag {

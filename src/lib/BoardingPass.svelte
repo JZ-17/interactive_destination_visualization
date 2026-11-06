@@ -20,6 +20,8 @@
     vibeOf = '',
     vibe = '',
     question = 'WHAT DO CITIES WANT TO BE KNOWN FOR?',
+    /** Draw the outbound jet and a return jet beneath it, for a round trip. */
+    roundTrip = false,
     flight = 'CS1710',
     terminal = 'XCZ | JZ | NZ',
     seat = 'A1',
@@ -86,7 +88,15 @@
     <text class="place" x="40" y="158">{fromCity.toUpperCase()}</text>
     {#if fromCountry}<text class="country" x="40" y="176">{fromCountry.toUpperCase()}</text>{/if}
 
-    <path class="jet" d={PLANE} />
+    {#if roundTrip}
+      <!-- There and back: the outbound jet a little high and smaller, its
+           mirror image beneath heading home. Both scaled about the jet's own
+           centre (207, 125.5) so they stay between FROM and TO. -->
+      <path class="jet" d={PLANE} transform="translate(207 113) scale(0.78) translate(-207 -125.5)" />
+      <path class="jet" d={PLANE} transform="translate(207 141) scale(-0.78 0.78) translate(-207 -125.5)" />
+    {:else}
+      <path class="jet" d={PLANE} />
+    {/if}
 
     <text class="tag" x="262" y="92">TO</text>
     <text class="code" x="262" y="132">{code}</text>

@@ -66,7 +66,11 @@
 </div>
 
 <style>
+  /* Nothing in here is interactive, and the band paints over the foot of the
+     scene above it (the personality card's Flip button hangs there), so it
+     lets every click through. */
   .interlude {
+    pointer-events: none;
     position: relative;
     min-height: 62vh;
     display: flex;
