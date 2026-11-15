@@ -20,12 +20,14 @@
   import { onMount, tick, untrack } from 'svelte';
   import { afterNavigate } from '$app/navigation';
   import {
-    loadCities, wordIndex, commonWords, corpusWords, cityWords, mentionIndex,
+    loadCities, loadCountries, wordIndex, commonWords, corpusWords, cityWords, mentionIndex,
     descriptionIndex, greatCircleKm, DESCRIBING_POOL, VOICE_TICKET, TICKET_DEFAULT, SCRAPED,
-    TWIN_METHODS, IATA
+    TWIN_METHODS, IATA, THEMES, PERSONALITIES, axisById, rankCities
   } from '$lib/data.js';
   import { prefersStill } from '$lib/scroll.js';
+  import { PLANE } from '$lib/ticketArt.js';
   import TicketPicker from '$lib/TicketPicker.svelte';
+  import PinMap from '$lib/PinMap.svelte';
   import TripBar from '$lib/TripBar.svelte';
   import SkyFlight from '$lib/SkyFlight.svelte';
   import PairFlight from '$lib/PairFlight.svelte';
@@ -34,6 +36,9 @@
   import WordCloud from '$lib/WordCloud.svelte';
   import PersonalityCard from '$lib/PersonalityCard.svelte';
   import TwinTags from '$lib/TwinTags.svelte';
+  import TwinGrid from '$lib/TwinGrid.svelte';
+  import ThemeProfile from '$lib/ThemeProfile.svelte';
+  import PersonalityScene from '$lib/PersonalityScene.svelte';
   import ThemeDuel from '$lib/ThemeDuel.svelte';
   import VoiceDumbbell from '$lib/VoiceDumbbell.svelte';
   import PairWords from '$lib/PairWords.svelte';
@@ -41,6 +46,7 @@
   import Stamp from '$lib/Stamp.svelte';
 
   let cities = $state([]);
+  let land = $state(null);        // country polygons, for the atlas map
   let error = $state(null);
 
   // --- shared selection state, one owner each ---------------------------
@@ -100,14 +106,47 @@
 
   /** The scenes in this journey, for the strip's dots. */
   let stops = $derived([
+    { id: 'atlas', label: 'The fifty' },
     { id: 'flight', label: 'Shared words' },
     { id: 'boards', label: 'Most common words' },
     { id: 'left', label: 'What is left' },
+    { id: 'talk', label: 'What it talks about' },
+    { id: 'sells', label: 'How it sells' },
     { id: 'twins', label: 'Who it sounds like' },
     { id: 'rank', label: 'Rank the 50' },
     { id: 'arrive', label: 'Arrival' },
     ...(other ? PAIR_STOPS : [])
   ]);
+
+  // --- the theme Rank the 50 opens on ------------------------------------
+  // It opens on the destination's strongest theme. A pick is
+  // remembered with the destination it was made for, so a new journey opens
+  // on its own city's strongest theme without an effect to reset it.
+  let rankPick = $state({ dest: '', theme: '', by: 'theme', voice: '' });
+  let topTheme = $derived.by(() => {
+    if (!solo) return THEMES[0];
+    let best = null;
+    for (const theme of THEMES) {
+      const m = axisById(`theme:${theme}`);
+      const rank = rankCities(cities, m).rank.get(solo.city);
+      const value = m.get(solo);
+      if (!best || rank < best.rank || (rank === best.rank && value > best.value)) best = { theme, rank, value };
+    }
+    return best.theme;
+  });
+  // Ranked by a theme or by a selling move. A personality ranking opens on the
+  // destination's own personality, or its strongest lean if it is Understated.
+  let topVoice = $derived.by(() => {
+    if (!solo) return PERSONALITIES[0];
+    if (solo.personality !== 'The Understated') return solo.personality;
+    return [...PERSONALITIES].sort((p, q) => solo.voice[q] - solo.voice[p])[0];
+  });
+  let rankFresh = $derived(rankPick.dest === dest);
+  let rankTheme = $derived(rankFresh && rankPick.theme ? rankPick.theme : topTheme);
+  let rankBy = $derived(rankFresh ? rankPick.by : 'theme');
+  let rankVoice = $derived(rankFresh && rankPick.voice ? rankPick.voice : topVoice);
+  const setRank = (patch) =>
+    (rankPick = { ...(rankFresh ? rankPick : { theme: '', by: 'theme', voice: '' }), dest, ...patch });
 
   function goTo(id, instant = false) {
     document.getElementById(`stop-${id}`)?.scrollIntoView({
@@ -216,7 +255,11 @@
 
   onMount(async () => {
     try {
-      ({ cities } = await loadCities());
+      // In parallel: the map is useless without the cities and the cities
+      // have nothing to sit on without the map.
+      const [loaded, geo] = await Promise.all([loadCities(), loadCountries()]);
+      cities = loaded.cities;
+      land = geo;
     } catch (e) {
       error = e.message;
     }
@@ -269,25 +312,18 @@
 
 <main class="trip" style="--ticket:{ticketColor}">
   <section class="gate" class:alone={!solo}>
-    <!-- What this is, before anything is asked of the reader: the corpus and
-         the project's question, then the one choice. -->
-    <header class="premise">
-      <p class="setup">
-        We scanned tourist sites for {cities.length || 50} cities
-        around the world to answer:
-      </p>
-      <p class="question">
-        How do the ways cities describe themselves reveal how they wish to be perceived?
-      </p>
-    </header>
-
+    <!-- One thing is asked of the reader here and nothing is told to them
+         yet. The corpus, the question and the map that grounds both wait in
+         the atlas below, where the chosen city's pin can be lit among the
+         other 49; and the pass keeps BOARDING TIME rather than the city's
+         vibe, because the vibe is a finding and findings come after the
+         flight, not before the reader has chosen anything. -->
     <h1>Where do you want to go today?</h1>
 
     <div class="ticket" bind:this={ticketEl}>
       <TicketPicker
         cities={sorted}
         to={solo}
-        vibeCity={solo}
         {time}
         {date}
         onpick={setDest}
@@ -311,17 +347,47 @@
           Choose for me
         </button>
         {#if solo}
-          <button class="board" onclick={() => goTo('flight')}>Board the flight to {solo.city}</button>
+          <button class="board" onclick={() => goTo('atlas')}>Board the flight to {solo.city}</button>
         {:else}
           <button class="board" disabled>Choose a destination to board</button>
         {/if}
       </div>
     {/if}
 
-    <p class="source">Each city’s official tourism website, scanned in {SCRAPED}.</p>
   </section>
 
   {#if solo}
+    <!-- The bridge, in both senses. It introduces the corpus — this is the
+         set every later claim is made over — and it carries the page off the
+         ground before the sky, with the chosen city's pin filled among the
+         other 49 so the reader can see what they picked out of. -->
+    <section id="stop-atlas" class="atlas">
+      <header class="premise">
+        <h2 class="setup">
+          We scanned tourist sites<span class="mark">*</span> for {cities.length || 50} cities
+          around the world to answer:
+        </h2>
+        <p class="question">
+          How do the ways cities describe themselves reveal how they wish to be perceived?
+        </p>
+      </header>
+
+      <!-- The way on, above the map rather than after it: the map is the
+           thing to linger over, and a button underneath it reads as the end
+           of the section instead of an offer. -->
+      <button class="board onward" onclick={() => goTo('flight')}>
+        <svg class="jet" viewBox="188 107 38 37" aria-hidden="true"><path d={PLANE} /></svg>
+        TAKE OFF
+      </button>
+
+      <PinMap {cities} {land} selected={solo.city} />
+
+      <!-- When, which every claim downstream rests on: a tourism board can
+           rewrite its front page any week, so the corpus is a reading taken
+           on a date rather than a standing fact. -->
+      <p class="source"><span class="mark">*</span> Scanned in {SCRAPED}.</p>
+    </section>
+
     <div id="stop-flight"><SkyFlight city={solo} {words} {echoes} /></div>
 
     <div class="descent">
@@ -338,6 +404,26 @@
       <WordCloud city={solo} {cloudIndex} ticket={ticketColor} />
     </div>
 
+    <!-- The turn from the fingerprint to the themes: the stamp just counted the
+         words no other city writes, and the next scene looks for the patterns in
+         all of them, sorted into ten subjects. -->
+    <Interlude line="Are there patterns in the words {solo.city} uses?" route="swoop" />
+
+    <!-- Its words sorted into the ten themes, and where each puts it among
+         the fifty. Before the personality, because what a city talks about is
+         the ground its way of selling stands on. -->
+    <div id="stop-talk" class="scene">
+      <ThemeProfile {cities} city={solo} />
+    </div>
+
+    <Interlude line="What kind of salesperson is {solo.city}?" route="loop" />
+
+    <!-- What it talks about, then how it sells it: the personality, proved
+         from the site's own sentences, beside all nine selling moves. -->
+    <div id="stop-sells" class="scene">
+      <PersonalityScene city={solo} />
+    </div>
+
     <Interlude line="So who does {solo.city} really sound like?" route="climb" />
 
     <div id="stop-twins" class="scene twin-scene">
@@ -346,14 +432,21 @@
         <h2>Who {solo.city} sounds like</h2>
         <!-- Read-only here: the comparison is offered at the arrival, where
              these same cities come back as one-click suggestions. -->
-        <TwinTags city={solo} />
+        <TwinGrid city={solo} />
       </div>
     </div>
 
     <Interlude line="Now find {solo.city} among the fifty." route="swoop" />
 
     <div id="stop-rank" class="scene">
-      <RankSection {cities} {dest} {compare} onpick={pickFromRank} />
+      <RankSection
+        {cities} {dest} {compare}
+        by={rankBy} theme={rankTheme} voice={rankVoice}
+        onby={(by) => setRank({ by })}
+        ontheme={(theme) => setRank({ theme })}
+        onvoice={(voice) => setRank({ voice })}
+        onpick={pickFromRank}
+      />
     </div>
 
     <!-- The end of the first leg, and the only place a second city is asked for. -->
@@ -483,6 +576,16 @@
     --display: 'Manjari', system-ui, sans-serif;
     --font: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
     --text-muted: #5d6378;
+    /* One set of measures for every scene, read by the components through the
+       cascade: the same width, the same heading size, and the same white card
+       wherever a chart or list sits. --surface is whatever a mark's halo must
+       match; a card resets it to white. */
+    --scene-w: 1040px;
+    --scene-h2: clamp(1.6rem, 3.2vw, 2.4rem);
+    --card-radius: 20px;
+    --card-pad: clamp(18px, 2.6vw, 30px);
+    --card-shadow: 0 1px 2px rgba(25, 30, 59, 0.05), 0 8px 28px rgba(25, 30, 59, 0.07);
+    --surface: #f3f6fb;
     font-family: var(--font);
     /* clip, not hidden: hidden would make this a scroller and break every sticky stage. */
     overflow-x: clip;
@@ -581,14 +684,90 @@
   .dice circle { fill: currentColor; stroke: none; }
   .error { color: #8a2f2f; }
 
+  /* --- the atlas ----------------------------------------------------------- */
+  /*
+   * The frame between the gate and the sky, and the only place on this page
+   * that says what the corpus is.
+   *
+   * Flat #e8ebf7, not a gradient: the gate's wash ends on that exact colour
+   * and SkyBackdrop's begins on it, so this section can sit between the two
+   * without a seam at either join. (The /board draft had to ramp paper to sky
+   * across this frame, and needed a dither film to keep the ramp from banding;
+   * here there is nothing to ramp.) Change either neighbour and this moves
+   * with it.
+   */
+  .atlas {
+    background: #e8ebf7;
+    padding: clamp(44px, 6vw, 76px) 16px clamp(52px, 7vw, 88px);
+    text-align: center;
+    /* Everything in this frame that is not the map, plus room for the trip
+       strip: the map sizes itself against what is left of the screen. */
+    --atlas-reserve: 430px;
+  }
+  .atlas > :global(*) {
+    width: min(1180px, 100%);
+    margin-inline: auto;
+  }
+  /* Still an h2 — this is the section's heading and the document outline and
+     screen readers both rely on that — but set as the same quiet lead-in the
+     gate used to carry, because the three lines are one spoken sentence. */
+  .atlas .premise { align-items: center; }
+  .atlas h2 { font-weight: 650; }
+  /* The frame is meant to be taken in at once — the fifty, the question and
+     the way on — so the map is sized to whatever height the rest of the
+     section leaves rather than to the page width. The plate is 2:1, so the
+     width it can afford is twice that leftover height; on a tall window the
+     1180px box still wins and nothing shrinks. */
+  .atlas :global(.atlas-map) {
+    margin-top: clamp(18px, 3vw, 40px);
+    max-width: min(1180px, calc((100svh - var(--atlas-reserve)) * 2));
+    margin-inline: auto;
+  }
+  .atlas .source { margin-top: 14px; opacity: 0.8; }
+  /* Raised a little and off the text's weight, so it reads as a marker
+     rather than as punctuation inside the sentence. */
+  .mark { font-size: 0.85em; vertical-align: 0.28em; opacity: 0.75; }
+  /* The same pill as the gate's, one step quieter: that button is the
+     decision, this one only carries you on. `width: auto` because the rule
+     above hands every direct child a 1180px box, which would otherwise
+     stretch a pill across the whole section. */
+  .onward {
+    width: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 11px;
+    margin: clamp(22px, 3.6vw, 40px) auto 0;
+    padding: 12px 26px;
+    font-size: 0.95rem;
+    letter-spacing: 0.06em;
+  }
+  /* Nose up, the way a departures board draws it — and the same jet as the
+     ticket and the trip strip, so the three read as one aircraft. */
+  .onward .jet {
+    width: 18px;
+    flex: none;
+    fill: currentColor;
+    transform: rotate(-45deg);
+    transition: transform 0.16s ease;
+  }
+  .onward:hover .jet { transform: rotate(-45deg) translateX(3px); }
+
   /* --- the scenes ---------------------------------------------------------- */
   /* Starts on exactly the sky's last stop, coming down out of the clouds. */
   .descent { background: linear-gradient(180deg in oklab, #a6c0ef 0%, #dde6f6 55%, #f3f6fb 100%); }
-  .scene { scroll-margin-top: 16px; }
+  /* Every scene gets a screen of its own, like the interludes between them,
+     with its content centred in it; a taller scene simply grows. */
+  .scene {
+    scroll-margin-top: 16px;
+    min-height: 100svh;
+    display: grid;
+    align-content: center;
+    padding-block: clamp(56px, 9vh, 104px);
+  }
 
   .twin-scene {
     display: grid;
-    grid-template-columns: minmax(220px, 340px) minmax(0, 760px);
+    grid-template-columns: minmax(220px, 300px) minmax(0, 700px);
     justify-content: center;
     align-items: center;
     gap: clamp(28px, 5vw, 64px);
@@ -596,11 +775,12 @@
   }
   h2 {
     font-family: var(--display);
-    font-size: clamp(1.4rem, 2.8vw, 2rem);
+    font-size: var(--scene-h2);
     font-weight: 400;
-    line-height: 1.15;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
   }
-  .pair-twins { width: min(1000px, 100%); margin: 72px auto 0; padding-inline: 16px; }
+  .pair-twins { width: min(var(--scene-w), 100%); margin: 88px auto 0; padding-inline: 16px; }
 
   /* --- the arrival ---------------------------------------------------------- */
   /* A second gate. With a comparison picked it fades into the sky's first stop,

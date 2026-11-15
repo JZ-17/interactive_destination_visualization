@@ -40,12 +40,35 @@
 </script>
 
 <div class="cloud-scene">
+  <!-- What the cloud is and what the slider does, said once, before either:
+       the same heading-and-line opening as every other scene. -->
+  <header class="scene-head">
+    <h2>Explore {city.city}’s fingerprint</h2>
+    <p class="lede">
+      Every word on {city.city}’s site, sized by how often it writes it. Drag the slider to
+      fade out the words other cities use too. The words that stay dark are the ones
+      few or no other cities write.
+    </p>
+  </header>
+
+  <!-- The slider and the cloud it filters share one box, so the slider stays
+       pinned while the cloud scrolls past and lets go before the stamp. -->
+  <div class="cloud-area">
   <div class="dial">
     <label for="others">
-      Keep words found in at most <strong>{maxOthers}</strong> other {maxOthers === 1 ? 'city' : 'cities'}
+      <span>
+        {#if maxOthers === 0}
+          Showing words <strong>no other city</strong> uses
+        {:else if maxOthers === 49}
+          Showing <strong>every word</strong>, however common
+        {:else}
+          Showing words that at most <strong>{maxOthers}</strong> other {maxOthers === 1 ? 'city uses' : 'cities use'}
+        {/if}
+      </span>
+      <span class="left" aria-live="polite"><strong>{lit.size}</strong> of {field.length} words left</span>
     </label>
     <input id="others" type="range" min="0" max="49" bind:value={maxOthers} style="--plane:{thumb(ticket)}" />
-    <p class="scale" aria-hidden="true"><span>only {city.city}</span><span>all 50</span></p>
+    <p class="scale" aria-hidden="true"><span>only {city.city}</span><span>every word</span></p>
   </div>
 
   <ul class="cloud" aria-label="Every word {city.city} writes" onmouseleave={() => (hover = null)}>
@@ -69,6 +92,8 @@
     {/each}
   </ul>
 
+  </div>
+
   <div class="verdict">
     <div class="stamp-box">
       <Stamp value="{Math.round(score.share * 100)}%" rim="ONLY IN {city.city.toUpperCase()} • ONLY IN {city.city.toUpperCase()} •" code={IATA[city.city]} />
@@ -78,7 +103,7 @@
         {score.unique} of the {score.total} different words {city.city} writes, no other city writes at all.
       </p>
       <p class="small">
-        Its description runs {city.wordCount} words, {score.lengthRank === 1 ? 'the longest' : score.lengthRank === 50 ? 'the shortest' : `the ${ord(score.lengthRank)} longest`} of the fifty.
+        Keep in mind that its description runs {city.wordCount.toLocaleString('en-US')} words, {score.lengthRank === 1 ? 'the longest' : score.lengthRank === 50 ? 'the shortest' : `the ${ord(score.lengthRank)} longest`} of the fifty.
         Longer sites have more room for a word nobody else used.
       </p>
     </div>
@@ -87,9 +112,33 @@
 
 <style>
   .cloud-scene { width: min(1180px, 100%); margin-inline: auto; padding-inline: 16px; }
+  /* The heading keeps the shared scene measure even though the cloud runs wider. */
+  .scene-head { width: min(calc(var(--scene-w) - 32px), 100%); margin: 0 auto 8px; }
+  h2 { font-family: var(--display); font-size: var(--scene-h2); font-weight: 400; letter-spacing: -0.01em; line-height: 1.1; text-wrap: balance; }
+  .lede { margin-top: 8px; max-width: 62ch; line-height: 1.5; color: var(--text-secondary); }
 
-  .dial { width: min(620px, 100%); margin-inline: auto; display: flex; flex-direction: column; gap: 6px; }
-  .dial label { font-size: 0.95rem; text-align: center; color: var(--text-secondary); }
+  /* Pinned to the top of the screen while the cloud below it is in view: the
+     reader can drag the threshold and watch words drop out without scrolling
+     back up. The page colour behind it, fading out at its foot, keeps the
+     words passing underneath from showing through its labels. */
+  .dial {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    /* The band spans the whole cloud so no word shows beside the slider; the
+       slider and its labels keep their own narrower measure inside it. */
+    width: 100%;
+    padding: 14px 0 22px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(180deg, #f3f6fb 80%, rgba(243, 246, 251, 0));
+  }
+  /* :is() lifts this above the range input's own `width: 100%`. */
+  .dial > :is(label, input, .scale) { width: min(620px, 100%); }
+  .dial label { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 0.95rem; text-align: center; color: var(--text-secondary); }
+  .dial .left { font-size: 0.8rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
   .dial strong { color: var(--text-primary); }
   input[type='range'] {
     -webkit-appearance: none;
@@ -169,13 +218,17 @@
   }
   .cloud li:hover .tip, .cloud li:focus-within .tip { display: block; }
 
+  /* The verdict gets a screen of its own: once the cloud has scrolled away,
+     the stamp and its sentence sit alone, centred, with nothing else in view. */
   .verdict {
     display: grid;
     grid-template-columns: minmax(150px, 230px) minmax(0, 560px);
     justify-content: center;
+    align-content: center;
     align-items: center;
     gap: clamp(20px, 4vw, 48px);
-    margin-top: 56px;
+    min-height: 100svh;
+    padding-block: 48px;
   }
   .big { font-family: var(--display); font-size: clamp(1.5rem, 3.2vw, 2.3rem); line-height: 1.16; letter-spacing: -0.012em; }
   .small { margin-top: 12px; font-size: 0.86rem; line-height: 1.5; color: var(--text-secondary); }

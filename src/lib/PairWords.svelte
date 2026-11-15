@@ -34,7 +34,7 @@
 </div>
 
 <style>
-  .meet { width: min(920px, 100%); margin-inline: auto; padding-inline: 16px; text-align: center; }
+  .meet { width: min(var(--scene-w), 100%); margin-inline: auto; padding-inline: 16px; text-align: center; }
   ul { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 8px 24px; margin: 0; padding: 0; list-style: none; font-family: var(--display); }
   li span { margin-left: 3px; font-size: 0.5em; vertical-align: super; opacity: 0.7; }
   .key { margin-top: 16px; font-size: 0.78rem; color: var(--text-secondary); }

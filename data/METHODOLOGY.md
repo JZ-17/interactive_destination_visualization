@@ -164,8 +164,10 @@ Argentina*). All 50 cities resolved.
 | `Theme focus` | 1.0 = single-theme specialist, 0.1 = even generalist |
 | `Self reference per 1k words` | how often the city names itself |
 
-**Archetype is not the most-mentioned theme.** Food leads corpus-wide
-(3.38/1k), so raw counts would make almost everyone a Gourmand. Each theme is
+**Archetype is not the most-mentioned theme.** History, Nature and Food lead
+corpus-wide (17.3, 16.8 and 14.3 per 1,000 words), and each is the most-mentioned
+theme for 13 cities, so raw counts would split nearly everyone between three
+labels. Each theme is
 divided by its corpus average and the highest ratio wins — the theme that makes
 a city *unusual*. A theme must also be mentioned at least **9 times per 1,000 words**
 before it can define a city; without that floor, Athens was labelled "The Night
@@ -220,7 +222,7 @@ Theme and personality profiles are z-scored per dimension first, or Food (mean
 columns are **lower-is-closer**, unlike the two similarity columns.
 
 Of 50 cities the methods agree rarely: TF-IDF and vocabulary overlap pick the
-same twin for 8, TF-IDF and theme for 3, TF-IDF and personality for 1. Treat any
+same twin for 8, TF-IDF and theme for 4, TF-IDF and personality for 1. Treat any
 single twin column as one defensible choice among four, not as a fact.
 Paris↔Bucharest is the exception, surviving on two methods.
 
@@ -274,6 +276,16 @@ Beach & Water, Nightlife, Shopping, Architecture, Modern & Business, Family):
 | `<Theme> words` | the actual words that matched, de-duplicated, first-seen order |
 | `<Theme> count` | total keyword matches, counting repeats |
 | `theme: <Theme>` | that theme's mentions per 1,000 words |
+
+Theme patterns are stems that must start a word: `\bhistor` finds *history*
+and *historic*, but `\beat` no longer finds *great*, *features* or *theatre*.
+Before that boundary was added (15 November 2026), 172 of 512 Food matches,
+35 "art" matches inside *heart* and 13 "port" matches inside *airport* were
+counted, and five archetypes moved when it was fixed: Rome (Historian →
+Gourmand), Paris (Architect → Aesthete), Marrakech (Shopper → Executive),
+Zagreb (Naturalist → Gourmand) and Malmö (Executive → Architect). The cost is
+a handful of real mentions inside compounds (*rainforest*, *prehistoric*,
+*multicultural*, Swedish *-parken* names).
 
 Note `<Theme> count` counts every occurrence while `<Theme> words` lists only
 distinct ones — Mendoza matched Nature 16 times but shows 8 words, because
@@ -351,7 +363,7 @@ Argentina*). All 50 cities resolved.
 
 | column | procedure |
 | --- | --- |
-| `theme: X` (10 columns) | run theme X's regex over the `Description`, count matches, multiply by 1000, divide by `Word count` |
+| `theme: X` (10 columns) | run theme X's regex over the `Description`, count matches, multiply by 1000, divide by `Word count`. Every theme pattern starts at a word boundary (`\beat`, not `eat`), so a pattern never matches from inside another word; five carry an exclusion: `opera(?!tion)`, `trail(?!er)`, `tech(?!niqu)`, `design(?!at)`, `canal(?!etto)` |
 | `Dominant theme` | divide each of the 10 theme rates by that theme's corpus-wide mean. Among themes whose own rate is >= `THEME_FLOOR` (9.0 per 1k words), take the highest ratio. If no theme clears the floor, fall back to the highest raw rate |
 | `Archetype` | the fixed label mapped to `Dominant theme` (History → The Historian, and so on) |
 | `Personality` | z-score every city on each column named in the `VOICE` map; average the z-scores within each personality; take the highest. If that value is < 0.5, return `The Understated` |

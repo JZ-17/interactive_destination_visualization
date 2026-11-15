@@ -2,10 +2,10 @@
   /**
    * Every city as one dot along the measure, so the shape of the ranking and
    * where your cities stand in it are visible before reading a single card.
-   * Dots stack where values coincide. Position is the value; each dot is drawn
-   * the way its card is, the city's own hue inside a ring in its category
-   * colour, so a dot and its card read as the same city. The reader's cities
-   * wear their ticket colour inside the ring instead, as their cards do.
+   * Dots stack where values coincide. Position is the value and colour is
+   * category, nothing else: a plain dot in blue or amber. The reader's cities
+   * are the one exception, their ticket colour inside a ring in their
+   * category colour, flagged and named.
    */
   import { scaleLinear } from 'd3-scale';
 
@@ -28,7 +28,8 @@
 
   let x = $derived(
     scaleLinear()
-      .domain([0, Math.max(1e-9, ...cities.map(measure.get))])
+      // From zero for a rate; from below zero for a score that can be negative.
+      .domain([Math.min(0, ...cities.map(measure.get)), Math.max(1e-9, ...cities.map(measure.get))])
       .range([M.left, width - M.right])
       .nice()
   );
@@ -61,8 +62,6 @@
       anchor: d.x < 60 ? 'start' : d.x > width - 60 ? 'end' : 'middle'
     }));
   });
-  /** The same hue the city's card uses for its bar. */
-  const cityFill = (c) => `hsl(${c.hue} 58% 47%)`;
 
   let hoverDot = $derived(
     dots.find((d) => d.city.city === hoveredCity && !picks.includes(d.city.city)) ?? null
@@ -77,6 +76,10 @@
       <text class="tick" x={x(t)} y={M.top + STACK_H + 21} text-anchor="middle">{t}</text>
     {/each}
     <text class="unit" x={M.left} y={height - 4}>{measure.label}, {measure.unit}</text>
+    {#if x.domain()[0] < 0}
+      <!-- The fifty-city average, when the scale runs either side of it. -->
+      <line class="avg" x1={x(0)} x2={x(0)} y1={M.top - 6} y2={M.top + STACK_H + 3} />
+    {/if}
 
     {#each dots as d (d.city.city)}
       {#if !picks.includes(d.city.city)}
@@ -91,7 +94,6 @@
         >
           <title>{d.city.city}: {measure.get(d.city).toFixed(1)}</title>
           <circle class="ring" cx={d.x} cy={d.y} r="6.2" />
-          <circle class="core" cx={d.x} cy={d.y} r="3.6" style="fill:{cityFill(d.city)}" />
         </g>
       {/if}
     {/each}
@@ -101,7 +103,7 @@
       <g class="held" class:gem={f.city.category === 'hidden'} role="presentation" onclick={() => onpick(f.city.city)}>
         <title>{f.city.city}: {measure.get(f.city).toFixed(1)}</title>
         <circle class="ring" cx={f.x} cy={f.y} r="9" />
-        <circle class="core" cx={f.x} cy={f.y} r="5.4" style="fill:{spots.get(f.city.city) ?? cityFill(f.city)}" />
+        <circle class="core" cx={f.x} cy={f.y} r="5.4" style="fill:{spots.get(f.city.city) ?? 'var(--text-primary)'}" />
       </g>
       <text class="flag" x={f.x} y={M.top - 14 - f.lift} text-anchor={f.anchor}>{f.city.city}</text>
     {/each}
@@ -118,11 +120,11 @@
   .base { stroke: var(--axis); }
   .tickmark { stroke: var(--axis); }
   .tick, .unit { font-size: 11px; fill: var(--text-secondary); }
-  /* The ring is the category; a thin white gap keeps it from melting into a
-     core whose hue happens to sit near blue or amber, and the page-coloured
-     edge separates dots that stack. */
+  .avg { stroke: var(--axis); stroke-dasharray: 3 3; }
+  /* The dot is the category. The page-coloured edge separates dots that
+     stack; a held city's ticket core sits inside its ring behind a white gap. */
   .dot, .held { cursor: pointer; }
-  .ring { fill: var(--big); stroke: #f3f6fb; stroke-width: 1.2; }
+  .ring { fill: var(--big); stroke: var(--surface, #f3f6fb); stroke-width: 1.2; }
   .gem .ring { fill: var(--gem); }
   .core { stroke: #fff; stroke-width: 1.1; }
   .dot.hovered .ring { stroke: var(--text-primary); stroke-width: 2; }
@@ -131,11 +133,11 @@
   /* The halo keeps a neighbour's flagpole off the letters. */
   .flag {
     font-family: var(--display); font-size: 16px; fill: var(--text-primary);
-    paint-order: stroke; stroke: #f3f6fb; stroke-width: 5; stroke-linejoin: round;
+    paint-order: stroke; stroke: var(--surface, #f3f6fb); stroke-width: 5; stroke-linejoin: round;
   }
   .hover-label {
     font-size: 12px; font-weight: 650; fill: var(--text-primary);
-    paint-order: stroke; stroke: #f3f6fb; stroke-width: 4; stroke-linejoin: round;
+    paint-order: stroke; stroke: var(--surface, #f3f6fb); stroke-width: 4; stroke-linejoin: round;
     pointer-events: none;
   }
 </style>

@@ -23,6 +23,170 @@ export const THEMES = [
 ];
 
 /**
+ * The ten theme lexicons, verbatim from the pipeline (THEMES in
+ * 3-story-analysis/story.py, also listed in vocabulary.csv), written as Python
+ * patterns. Every one starts at a word boundary, so "eat" no longer matches
+ * inside "great"; five carry an exclusion (operations, trailer, techniques,
+ * designated, Canaletto). Joined in this order and matched case-insensitive,
+ * they reproduce every `<Theme> count` in the CSV. Change a pattern here only
+ * together with the pipeline.
+ */
+export const THEME_PATTERNS = {
+  'Food': ['\\brestaurant', '\\bcuisine', '\\bfood', '\\bdish', '\\bchef', '\\bmarket', '\\bstreet food', '\\bculinary', '\\bgastronom', '\\bdining', '\\beat', '\\bbar\\b', '\\bcafe', '\\bcaf[eé]', '\\bbeer', '\\bwine', '\\bbrewery', '\\bmichelin', '\\btaste', '\\bflavou?r', '\\bdelicac'],
+  'History': ['\\bhistor', '\\bcentur', '\\bmedieval', '\\bancient', '\\bheritage', '\\bmonument', '\\bcastle', '\\bpalace', '\\bruins', '\\bempire', '\\bdynasty', '\\bwar\\b', '\\bold town', '\\bunesco', '\\btradition', '\\bfounded', '\\bbaroque', '\\bgothic', '\\brenaissance'],
+  'Art & Culture': ['\\bmuseum', '\\bgallery', '\\bart\\b', '\\bartist', '\\btheatre', '\\btheater', '\\bopera(?!tion)', '\\bconcert', '\\bmusic', '\\bfestival', '\\bexhibition', '\\bsculpture', '\\bcultural', '\\bliterature', '\\bcinema', '\\bfilm'],
+  'Nature': ['\\bpark', '\\bgarden', '\\bmountain', '\\blake', '\\briver', '\\bforest', '\\bhike', '\\bhiking', '\\bnature', '\\bgreen', '\\bwildlife', '\\btrail(?!er)', '\\bisland', '\\bvalley', '\\bscenic', '\\blandscape', '\\boutdoor'],
+  'Beach & Water': ['\\bbeach', '\\bcoast', '\\bsea\\b', '\\bocean', '\\bharbou?r', '\\bsail', '\\bswim', '\\bsurf', '\\bwaterfront', '\\bbay\\b', '\\bcanal(?!etto)', '\\bport\\b', '\\bcruise'],
+  'Nightlife': ['\\bnightlife', '\\bclub\\b', '\\bclubbing', '\\bparty', '\\bpub\\b', '\\bcocktail', '\\bdance', '\\blate[- ]night', '\\bafter dark', '\\bdjs?\\b'],
+  'Shopping': ['\\bshopping', '\\bshop\\b', '\\bboutique', '\\bmall', '\\bstore', '\\bsouvenir', '\\bbazaar', '\\bdesigner', '\\bfashion', '\\bretail'],
+  'Architecture': ['\\barchitect', '\\bskyline', '\\btower', '\\bbuilding', '\\bfacade', '\\bcathedral', '\\bchurch', '\\bmosque', '\\btemple', '\\bbridge', '\\bskyscraper', '\\bdesign(?!at)'],
+  'Modern & Business': ['\\bbusiness', '\\binnovation', '\\btech(?!niqu)', '\\bstartup', '\\bconference', '\\bfinancial', '\\bmodern', '\\bcontemporary', '\\beconomy', '\\bindustry', '\\bsmart city'],
+  'Family': ['\\bfamily', '\\bkids', '\\bchildren', '\\bzoo', '\\baquarium', '\\btheme park', '\\bplayground', '\\bamusement']
+};
+
+/**
+ * Where in its own description a city mentions each theme.
+ *
+ * For every theme, one entry per match: `at` is the match's position in the
+ * text from 0 (first character) to 1 (last), `word` the whole word the match
+ * sits in, and `context` the words around it split as `{ pre, hit, post }` so
+ * a tooltip can set the matched word apart. A pattern is a
+ * stem ("histor") or can land mid-word ("eat" in "great"), so `word` widens
+ * the match to its word: the reader sees "history", and sees "great" counted
+ * as food if that is what the lexicon did. Positions are relative to the
+ * city's own description, so a long site and a short one both run 0 to 1.
+ */
+/**
+ * A theme's patterns as one JavaScript regex.
+ *
+ * Python's `\b` knows accented letters and JavaScript's does not, so a
+ * boundary at either end of a pattern becomes an explicit look-around on
+ * letters, marks, digits and underscore. Without it "é" would count as a word
+ * edge here and the two languages would disagree on words like "caféeat".
+ */
+const WORD = '[\\p{L}\\p{M}\\p{N}_]';
+export function themeRegex(theme) {
+  const parts = THEME_PATTERNS[theme].map((p) =>
+    `(?:${p.replace(/^\\b/, `(?<!${WORD})`).replace(/\\b$/, `(?!${WORD})`)})`
+  );
+  return new RegExp(parts.join('|'), 'giu');
+}
+
+export function themeMentions(city) {
+  const text = city.description ?? '';
+  const len = Math.max(1, text.length);
+  const tidy = (t) => t.replace(/\s+/g, ' ');
+  /** About eight words either side of [start, end), cut at spaces. */
+  const around = (start, end) => {
+    let a = Math.max(0, start - 56);
+    let b = Math.min(text.length, end + 56);
+    if (a > 0) a = text.indexOf(' ', a) + 1 || a;
+    if (b < text.length) b = text.lastIndexOf(' ', b) > end ? text.lastIndexOf(' ', b) : b;
+    return {
+      pre: `${a > 0 ? '…' : ''}${tidy(text.slice(a, start)).trimStart()}`,
+      hit: text.slice(start, end),
+      post: `${tidy(text.slice(end, b)).trimEnd()}${b < text.length ? '…' : ''}`
+    };
+  };
+  const letter = /[\p{L}\p{M}]/u;
+  const wordAt = (start, end) => {
+    let a = start;
+    let b = end;
+    while (a > 0 && letter.test(text[a - 1])) a--;
+    while (b < text.length && letter.test(text[b])) b++;
+    return text.slice(a, b);
+  };
+  const out = {};
+  for (const theme of THEMES) {
+    out[theme] = [...text.matchAll(themeRegex(theme))].map((m) => {
+      const word = wordAt(m.index, m.index + m[0].length);
+      // Widen to the whole word here too, so the bold in the tooltip is the word.
+      const start = text.lastIndexOf(word, m.index + m[0].length - 1);
+      const from = start >= 0 && start <= m.index ? start : m.index;
+      return { at: m.index / len, word, context: around(from, from + word.length) };
+    });
+  }
+  return out;
+}
+
+/**
+ * Up to `n` passages from a city's description showing one personality at
+ * work. Each distinct matched phrase is found again in the text and widened to
+ * whole words and numbers ("000 years" reads "3,000 years"), then given about
+ * ten words either side. Passages that overlap are merged into one, so two
+ * phrases from the same sentence are quoted once with both set bold. Each
+ * passage is a list of `{ text, hit }` parts.
+ */
+export function voiceQuotes(city, personality, n = 3) {
+  const text = city.description ?? '';
+  const lower = text.toLowerCase();
+  const tidy = (t) => t.replace(/\s+/g, ' ');
+  const inWord = (ch) => /[\p{L}\p{N}]/u.test(ch ?? '');
+  const PAD = 70;
+
+  // Every distinct phrase, located and widened.
+  const hits = [];
+  const seen = new Set();
+  for (const term of city.voiceTerms?.[personality] ?? []) {
+    for (const w of term.words) {
+      const key = w.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      let at = lower.indexOf(key);
+      if (at < 0) continue;
+      let end = at + w.length;
+      while (at > 0 && (inWord(text[at - 1]) || (/[,.]/.test(text[at - 1]) && /\d/.test(text[at - 2] ?? '')))) at--;
+      while (end < text.length && inWord(text[end])) end++;
+      if (!hits.some((h) => at < h.end && end > h.at)) hits.push({ at, end });
+    }
+  }
+  hits.sort((x, y) => x.at - y.at);
+
+  // A window round each hit, cut at spaces; overlapping windows merge.
+  const windows = [];
+  for (const h of hits) {
+    let a = Math.max(0, h.at - PAD);
+    let b = Math.min(text.length, h.end + PAD);
+    if (a > 0) a = text.indexOf(' ', a) + 1 || a;
+    if (b < text.length) b = text.lastIndexOf(' ', b) > h.end ? text.lastIndexOf(' ', b) : b;
+    const last = windows[windows.length - 1];
+    if (last && a <= last.b) {
+      last.b = Math.max(last.b, b);
+      last.hits.push(h);
+    } else {
+      windows.push({ a, b, hits: [h] });
+    }
+  }
+
+  return windows.slice(0, n).map(({ a, b, hits: hs }) => {
+    const parts = [];
+    let pos = a;
+    for (const h of hs) {
+      if (h.at > pos) parts.push({ text: tidy(text.slice(pos, h.at)), hit: false });
+      parts.push({ text: text.slice(h.at, h.end), hit: true });
+      pos = h.end;
+    }
+    if (b > pos) parts.push({ text: tidy(text.slice(pos, b)), hit: false });
+    if (parts[0] && !parts[0].hit) parts[0].text = parts[0].text.trimStart();
+    const tail = parts[parts.length - 1];
+    if (tail && !tail.hit) tail.text = tail.text.trimEnd();
+    if (a > 0) parts.unshift({ text: '…', hit: false });
+    if (b < text.length) parts.push({ text: '…', hit: false });
+    return parts;
+  });
+}
+
+/** The distinct whole words behind a theme's mentions, first-seen, case-folded. */
+export function mentionWords(list) {
+  const seen = new Map();
+  for (const { word } of list) {
+    const key = word.toLowerCase();
+    if (!seen.has(key)) seen.set(key, key);
+  }
+  return [...seen.values()];
+}
+
+/**
  * The nine personality dimensions and the per-1k-word rate columns each is
  * built from (the pipeline's VOICE map). A dimension built from two columns
  * takes the mean of their z-scores.
@@ -83,6 +247,29 @@ export const VOICE_SHORT = {
  * ticket's white type at 5:1 or better, and none sits near the two category
  * colours. The Understated keeps the ticket's original brown.
  */
+/**
+ * The tagged-vocabulary columns behind each personality, keyed by the rate
+ * column's stem: where its matched words are listed, where they are counted,
+ * and what to call them in a sentence ("1 surprise word in 123 words").
+ */
+export const VOICE_TERMS = {
+  'Rank words': { list: 'Rank words', count: 'Rank words count', label: 'ranking words' },
+  'Numeric scale': { list: 'Numeric scale', count: 'Numeric scale count', label: 'big-number claims' },
+  'Authority borrowing': { list: 'Authority borrowing', count: 'Authority borrowing count', label: 'borrowed authorities' },
+  'UNESCO': { list: 'UNESCO', count: 'UNESCO count', label: 'UNESCO mentions' },
+  'Urgency': { list: 'Urgency', count: 'Urgency count', label: 'urgency words' },
+  'Imperatives': { list: 'Imperatives', count: 'Imperatives count', label: 'commands' },
+  'Second person': { list: 'Second person', count: 'Second person count', label: '“you”s' },
+  'Sensory': { list: 'Sensory', count: 'Sensory count', label: 'sensory words' },
+  'High sentiment noun': { list: 'High sentiment nouns', count: 'High sentiment noun count', label: 'charged nouns' },
+  'Defensive qualifiers': { list: 'Defensive qualifiers', count: 'Defensive qualifiers count', label: 'defensive qualifiers' },
+  'Surprise': { list: 'Surprise', count: 'Surprise count', label: 'surprise words' },
+  'Price and value': { list: 'Price and value', count: 'Price and value count', label: 'price words' },
+  'Sustainability': { list: 'Sustainability', count: 'Sustainability count', label: 'sustainability words' },
+  'Inclusivity': { list: 'Inclusivity', count: 'Inclusivity count', label: 'inclusivity words' },
+  'Cliches': { list: 'Cliches used', count: 'Cliche count', label: 'stock phrases' }
+};
+
 export const VOICE_TICKET = {
   'The Braggart': '#8a3a4a',
   'The Name-Dropper': '#5d4f7d',
@@ -140,7 +327,7 @@ export const TWIN_METHODS = [
   },
   {
     id: 'theme',
-    label: 'Same subjects',
+    label: 'Same themes',
     question: 'Which city talks about the same ten themes in the same proportions?',
     partnerCol: 'Twin (theme profile)',
     scoreCol: 'Theme profile distance',
@@ -437,6 +624,24 @@ export async function loadCities(fetchImpl = fetch) {
         return (num(c._raw[col]) - mean) / sd;
       });
       c.voice[p] = zs.reduce((s, z) => s + z, 0) / zs.length;
+    });
+
+    // The evidence behind each dimension: per source column, the city's rate,
+    // the corpus mean it is compared with, the exact count, and the words.
+    c.voiceTerms = {};
+    PERSONALITIES.forEach((p) => {
+      c.voiceTerms[p] = VOICE[p].map((col) => {
+        const stem = col.replace(/ per 1k words$/, '');
+        const t = VOICE_TERMS[stem];
+        return {
+          stem,
+          label: t.label,
+          rate: num(c._raw[col]),
+          avg: colStats[col].mean,
+          count: num(c._raw[t.count]),
+          words: list(c._raw[t.list])
+        };
+      });
     });
 
     delete c._raw;

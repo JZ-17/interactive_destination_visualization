@@ -17,16 +17,16 @@
       shared: city.twins[m.id].shared.slice(0, 3)
     }))
   );
-  const PLAIN = {
-    theme: 'Talks about the same themes in the same proportions',
-    personality: 'Uses the same selling moves'
-  };
 </script>
 
 {#snippet face(t)}
   <span class="how">{t.label}</span>
   <span class="who">{t.partner}</span>
-  <span class="why">{t.shared.length ? `Both use: ${t.shared.join(', ')}` : PLAIN[t.id]}</span>
+  <!-- The shared words as chips where the measure has them; the two profile
+       measures have none, and the method label already says what they match. -->
+  {#if t.shared.length}
+    <span class="why">{#each t.shared as w (w)}<span>{w}</span>{/each}</span>
+  {/if}
 {/snippet}
 
 <div class="rail">
@@ -42,11 +42,7 @@
     {/each}
   </ul>
 </div>
-<p class="caveat">
-  Four ways to measure “sounds like”, and they rarely agree. Each names a closest
-  match, not a percentage: the strongest pair in the data scores only 0.169 on a
-  0 to 1 scale.
-</p>
+<p class="caveat">Four measures, rarely in agreement. Each is a closest match, not a percentage.</p>
 
 <style>
   /* The dashed rail the four tags hang from. */
@@ -85,7 +81,7 @@
     gap: 3px;
     width: 100%;
     height: 100%;
-    min-height: 150px;
+    min-height: 118px;
     padding: 30px 12px 14px;
     border: 1px solid rgba(25, 30, 59, 0.16);
     border-radius: 14px 14px 10px 10px;
@@ -112,7 +108,9 @@
   .tag:focus-visible { outline: 2px solid var(--text-primary); outline-offset: -4px; }
   .how { font-size: 0.76rem; color: var(--text-muted); }
   .who { font-family: var(--display); font-size: 1.55rem; line-height: 1.1; }
-  .why { font-size: 0.76rem; line-height: 1.35; color: var(--text-secondary); }
+  .why { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; margin-top: 2px; }
+  .why span { font-size: 0.76rem; padding: 1px 7px; border-radius: 6px; background: #eef2f8; color: var(--text-secondary); }
+  .tag[aria-pressed='true'] .why span, .tag.on .why span { background: rgba(255, 255, 255, 0.2); color: #fff; }
   .caveat { margin-top: 18px; max-width: 76ch; font-size: 0.8rem; line-height: 1.45; color: var(--text-secondary); }
 
   @media (prefers-reduced-motion: reduce) {

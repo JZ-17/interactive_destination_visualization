@@ -1,8 +1,9 @@
 <script>
   /**
-   * Two departures boards: this city's most-written words, and all fifty's.
-   * Paper boards on the page's pale sky, with the split-flap rows kept in two
-   * light tones; the word you point at lights up in the ticket's colour.
+   * Two ranked lists: this city's most-written words, and all fifty's, on the
+   * same white cards and in the same row style as every other ranking on the
+   * page. The city's bars wear its ticket colour; all fifty's are neutral, and
+   * faded where the city never uses the word. Pointing at a word tints its row.
    *
    * Each board holds every word and scrolls on its own, twelve rows tall.
    * Pointing at a word lights it on both boards; if it is scrolled out of view
@@ -50,10 +51,19 @@
 </script>
 
 <div class="wrap">
+  <header class="scene-head">
+    <h2>The words {city.city} writes most</h2>
+    <p class="lede">
+      Beside the words all fifty write most. These are raw counts, so longer sites add
+      more: {city.city}’s runs {city.wordCount.toLocaleString('en-US')} words. Faded words
+      on the right are ones {city.city} doesn’t use.
+    </p>
+  </header>
+
   <div class="boards" onmouseleave={() => (lit = null)} role="presentation">
     {#each boards as b (b.id)}
       {@const pin = pinned(b)}
-      <article class="board">
+      <article class="board" class:mine={b.id === 'city'}>
         <header>
           <h3>{b.title}</h3>
           <p>{b.unit}</p>
@@ -96,35 +106,31 @@
     {/each}
   </div>
 
-  <div class="under">
-    <p>
-      Faded words on the right are ones {city.city} doesn’t use. These are raw
-      counts, so longer sites add more: {city.city}’s runs {city.wordCount} words.
-      The two boards use different scales.
-    </p>
-  </div>
 </div>
 
 <style>
-  .wrap { width: min(1120px, 100%); margin-inline: auto; padding-inline: 16px; }
-  .boards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(430px, 100%), 1fr)); gap: 22px; }
+  .wrap { width: min(var(--scene-w), 100%); margin-inline: auto; padding-inline: 16px; }
+  h2 { font-family: var(--display); font-size: var(--scene-h2); font-weight: 400; letter-spacing: -0.01em; line-height: 1.1; text-wrap: balance; }
+  .lede { margin-top: 8px; max-width: 62ch; line-height: 1.5; color: var(--text-secondary); }
+
+  .boards { margin-top: 28px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 24px; }
   .board {
-    padding: 22px 22px 16px;
-    border-radius: 16px;
+    padding: var(--card-pad);
+    border-radius: var(--card-radius);
     background: #fff;
     color: var(--text-primary);
-    border: 1px solid rgba(25, 30, 59, 0.07);
-    box-shadow: 0 14px 34px rgba(25, 30, 59, 0.08), 0 2px 6px rgba(25, 30, 59, 0.04);
+    box-shadow: var(--card-shadow);
   }
-  header { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
-  h3 { font-family: var(--display); font-size: 1.7rem; font-weight: 400; }
-  header p { font-size: 0.74rem; color: var(--text-muted); text-align: right; }
-  /* Twelve rows tall: each row is --row-h plus its 3px gap. Positioned so a
+  header:not(.scene-head) { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
+  h3 { font-family: var(--display); font-size: 1.45rem; font-weight: 400; }
+  header:not(.scene-head) p { font-size: 0.76rem; color: var(--text-muted); text-align: right; }
+
+  /* Twelve rows tall: each row is --row-h plus its 2px gap. Positioned so a
      row's offsetTop is measured from the list, for scrolling to it. */
   ol {
-    --row-h: 27px;
+    --row-h: 30px;
     position: relative;
-    max-height: calc(12 * (var(--row-h) + 3px) - 3px);
+    max-height: calc(12 * (var(--row-h) + 2px) - 2px);
     margin: 14px 0 0;
     padding: 0 4px 0 0;
     list-style: none;
@@ -132,50 +138,40 @@
     scrollbar-color: #c9d0e3 transparent;
   }
 
-  /* Each row is a flap, split in two tones like a real board. A drawn line would
-     run through the word and read as a strikethrough. */
+  /* The same row as Rank the 50's list: rank, word, bar on a track, count. */
   .row {
-    position: relative;
     display: grid;
-    grid-template-columns: 2.2em var(--wcol) 1fr 2.6em;
+    grid-template-columns: 2em var(--wcol) minmax(0, 1fr) 2.6em;
     align-items: center;
     gap: 10px;
     width: 100%;
-    height: var(--row-h, 27px);
+    height: var(--row-h, 30px);
     padding: 0 8px;
-    margin-bottom: 3px;
+    margin-bottom: 2px;
     border: none;
-    border-radius: 5px;
-    background: linear-gradient(180deg, #f5f7fc 0 50%, #edf1f9 50%);
-    color: inherit;
-    font-size: 0.84rem;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 0.92rem;
     text-align: left;
+    font-variant-numeric: tabular-nums;
   }
-  /* The ticket's colour, stationery not encoding: every ticket keeps white
-     type at 4.5:1. The overlay keeps the flap's split showing through it. */
-  button.row:hover, .row.lit {
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0 50%, rgba(0, 0, 0, 0.04) 50%), var(--ticket);
-    color: #fff;
-  }
+  button.row:hover, .row.lit { background: rgba(25, 30, 59, 0.05); }
+  .row.lit .w { font-weight: 650; }
   .row:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 1px; }
-  .row.theirs:not(.lit) { color: rgba(25, 30, 59, 0.38); }
-  .n { font-size: 0.74rem; text-align: right; opacity: 0.75; font-variant-numeric: tabular-nums; }
-  .w { font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .bar { display: block; }
-  .bar span { display: block; height: 5px; border-radius: 999px; background: currentColor; opacity: 0.55; }
-  .c { font-size: 0.76rem; text-align: right; font-variant-numeric: tabular-nums; }
+  .n { color: var(--text-muted); text-align: right; font-size: 0.84rem; }
+  .w { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar { display: block; height: 8px; border-radius: 4px; background: #eef1f7; }
+  .bar span { display: block; height: 100%; border-radius: 4px; background: #b8c1d4; }
+  .mine .bar span, .row.lit .bar span { background: var(--ticket); }
+  .c { text-align: right; }
+  .row.theirs:not(.lit) .w, .row.theirs:not(.lit) .c { color: #a3a9ba; }
+  .row.theirs:not(.lit) .bar span { background: #d3d9e5; }
 
-  .pin { min-height: 32px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(25, 30, 59, 0.16); }
-  .pin-hint { display: block; padding: 3px 8px; font-size: 0.74rem; color: var(--text-muted); }
-
-  .under {
-    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
-    gap: 10px 22px; margin-top: 16px;
-  }
-  .under p { max-width: 74ch; font-size: 0.8rem; line-height: 1.45; color: var(--text-secondary); }
+  .pin { min-height: 32px; margin-top: 10px; }
+  .pin-hint { display: block; padding: 3px 8px; font-size: 0.76rem; color: var(--text-muted); }
 
   @media (max-width: 520px) {
-    .row { grid-template-columns: 1.8em minmax(0, 10ch) 1fr 2.2em; gap: 7px; }
-    .board { padding: 16px 12px 12px; }
+    .row { grid-template-columns: 1.8em minmax(0, 10ch) minmax(0, 1fr) 2.2em; gap: 7px; }
   }
 </style>

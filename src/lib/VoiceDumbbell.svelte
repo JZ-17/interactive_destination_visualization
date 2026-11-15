@@ -35,15 +35,30 @@
   let height = $derived(M.top + rows.length * rowH + M.bottom);
   const rowY = (i, h) => M.top + i * h + h - 16;
 
+  /** The move the two cities differ on most, for the heading. */
+  let gap = $derived(
+    [...PERSONALITIES].sort((p, q) => Math.abs(a.voice[q] - b.voice[q]) - Math.abs(a.voice[p] - b.voice[p]))[0]
+  );
+  let ahead = $derived(a.voice[gap] >= b.voice[gap] ? a : b);
+  let behind = $derived(ahead === a ? b : a);
+  const sd = (v) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}`;
+
   let colorA = $derived(VOICE_TICKET[a.personality]);
   let colorB = $derived(VOICE_TICKET[b.personality]);
 </script>
 
 <div class="voices">
+  <!-- Headed by a finding, the way the theme duel before it is. -->
+  <h2 class="headline">
+    The widest gap is <strong>{gap.replace(/^The /, '')}</strong>: {ahead.city} at {sd(ahead.voice[gap])},
+    {behind.city} at {sd(behind.voice[gap])}.
+  </h2>
   <p class="intro">
     Each row is one way of selling. Right of the line means the site does it more
     than the average city.
   </p>
+
+  <div class="board">
   <p class="who">
     <span><i class="dot" style="background:{colorA}"></i>{a.city}</span>
     <span><i class="dot ring" style="border-color:{colorB}"></i>{b.city}</span>
@@ -80,12 +95,32 @@
       </div>
     {/each}
   </div>
+  </div>
 </div>
 
 <style>
-  .voices { width: min(980px, 100%); margin-inline: auto; padding-inline: 16px; }
-  .intro { max-width: 60ch; margin: 0 auto; font-size: 0.98rem; line-height: 1.45; text-align: center; color: var(--text-secondary); }
-  .who { display: flex; justify-content: center; gap: 24px; margin-top: 14px; font-family: var(--display); font-size: 1.3rem; }
+  .voices { width: min(var(--scene-w), 100%); margin-inline: auto; padding-inline: 16px; }
+  .headline {
+    max-width: 30ch;
+    font-family: var(--display);
+    font-size: var(--scene-h2);
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+    text-wrap: balance;
+  }
+  /* inherit: the row labels below set `strong` small, and that must not reach the heading. */
+  .headline strong { font-size: inherit; font-weight: 700; }
+  .intro { max-width: 62ch; margin-top: 8px; font-size: 1rem; line-height: 1.5; color: var(--text-secondary); }
+  .board {
+    --surface: #fff;
+    margin-top: 28px;
+    padding: var(--card-pad);
+    border-radius: var(--card-radius);
+    background: #fff;
+    box-shadow: var(--card-shadow);
+  }
+  .who { display: flex; justify-content: center; gap: 24px; font-family: var(--display); font-size: 1.3rem; }
   .who span { display: inline-flex; align-items: center; gap: 8px; }
   .dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; box-sizing: border-box; }
   .dot.ring { background: none; border: 3px solid; }
@@ -99,7 +134,7 @@
   .label.narrow { height: 24px; }
   .mini { flex: none; width: 24px; height: 24px; color: var(--text-secondary); }
   .text { display: flex; flex-direction: column; line-height: 1.15; }
-  .narrow .text { flex-direction: row; align-items: baseline; gap: 6px; padding-right: 6px; background: #f3f6fb; }
+  .narrow .text { flex-direction: row; align-items: baseline; gap: 6px; padding-right: 6px; background: var(--surface, #f3f6fb); }
   strong { font-size: 0.86rem; font-weight: 500; }
   strong.lead { font-weight: 700; }
   small { font-size: 0.72rem; color: var(--text-secondary); }
