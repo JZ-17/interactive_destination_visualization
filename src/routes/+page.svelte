@@ -117,7 +117,7 @@
   ]);
 
   // --- the theme Rank the 50 opens on ------------------------------------
-  // The themes scene and Rank the 50 share it, so it lives here. A pick is
+  // It opens on the destination's strongest theme. A pick is
   // remembered with the destination it was made for, so a new journey opens
   // on its own city's strongest theme without an effect to reset it.
   let rankPick = $state({ dest: '', theme: '' });
@@ -134,11 +134,6 @@
   });
   let rankTheme = $derived(rankPick.dest === dest && rankPick.theme ? rankPick.theme : topTheme);
   const setRankTheme = (theme) => (rankPick = { dest, theme });
-  /** From the themes scene: open that theme in Rank the 50 and fly there. */
-  function openTheme(theme) {
-    setRankTheme(theme);
-    goTo('rank');
-  }
 
   function goTo(id, instant = false) {
     document.getElementById(`stop-${id}`)?.scrollIntoView({
@@ -405,7 +400,7 @@
          the fifty. Before the personality, because what a city talks about is
          the ground its way of selling stands on. -->
     <div id="stop-talk" class="scene">
-      <ThemeProfile {cities} city={solo} active={rankTheme} onpick={openTheme} />
+      <ThemeProfile {cities} city={solo} />
     </div>
 
     <Interlude line="So who does {solo.city} really sound like?" route="climb" />

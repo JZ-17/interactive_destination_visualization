@@ -49,7 +49,8 @@ export const THEME_PATTERNS = {
  *
  * For every theme, one entry per match: `at` is the match's position in the
  * text from 0 (first character) to 1 (last), `word` the whole word the match
- * sits in, and `context` the words around it, for a tooltip. A pattern is a
+ * sits in, and `context` the words around it split as `{ pre, hit, post }` so
+ * a tooltip can set the matched word apart. A pattern is a
  * stem ("histor") or can land mid-word ("eat" in "great"), so `word` widens
  * the match to its word: the reader sees "history", and sees "great" counted
  * as food if that is what the lexicon did. Positions are relative to the
@@ -74,12 +75,18 @@ export function themeRegex(theme) {
 export function themeMentions(city) {
   const text = city.description ?? '';
   const len = Math.max(1, text.length);
+  const tidy = (t) => t.replace(/\s+/g, ' ');
+  /** About eight words either side of [start, end), cut at spaces. */
   const around = (start, end) => {
-    let a = Math.max(0, start - 48);
-    let b = Math.min(text.length, end + 48);
+    let a = Math.max(0, start - 56);
+    let b = Math.min(text.length, end + 56);
     if (a > 0) a = text.indexOf(' ', a) + 1 || a;
     if (b < text.length) b = text.lastIndexOf(' ', b) > end ? text.lastIndexOf(' ', b) : b;
-    return `${a > 0 ? '…' : ''}${text.slice(a, b).replace(/\s+/g, ' ').trim()}${b < text.length ? '…' : ''}`;
+    return {
+      pre: `${a > 0 ? '…' : ''}${tidy(text.slice(a, start)).trimStart()}`,
+      hit: text.slice(start, end),
+      post: `${tidy(text.slice(end, b)).trimEnd()}${b < text.length ? '…' : ''}`
+    };
   };
   const letter = /[\p{L}\p{M}]/u;
   const wordAt = (start, end) => {
@@ -91,11 +98,13 @@ export function themeMentions(city) {
   };
   const out = {};
   for (const theme of THEMES) {
-    out[theme] = [...text.matchAll(themeRegex(theme))].map((m) => ({
-      at: m.index / len,
-      word: wordAt(m.index, m.index + m[0].length),
-      context: around(m.index, m.index + m[0].length)
-    }));
+    out[theme] = [...text.matchAll(themeRegex(theme))].map((m) => {
+      const word = wordAt(m.index, m.index + m[0].length);
+      // Widen to the whole word here too, so the bold in the tooltip is the word.
+      const start = text.lastIndexOf(word, m.index + m[0].length - 1);
+      const from = start >= 0 && start <= m.index ? start : m.index;
+      return { at: m.index / len, word, context: around(from, from + word.length) };
+    });
   }
   return out;
 }

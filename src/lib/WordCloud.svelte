@@ -40,6 +40,9 @@
 </script>
 
 <div class="cloud-scene">
+  <!-- The slider and the cloud it filters share one box, so the slider stays
+       pinned while the cloud scrolls past and lets go before the stamp. -->
+  <div class="cloud-area">
   <div class="dial">
     <label for="others">
       Keep words found in at most <strong>{maxOthers}</strong> other {maxOthers === 1 ? 'city' : 'cities'}
@@ -69,6 +72,8 @@
     {/each}
   </ul>
 
+  </div>
+
   <div class="verdict">
     <div class="stamp-box">
       <Stamp value="{Math.round(score.share * 100)}%" rim="ONLY IN {city.city.toUpperCase()} • ONLY IN {city.city.toUpperCase()} •" code={IATA[city.city]} />
@@ -88,7 +93,26 @@
 <style>
   .cloud-scene { width: min(1180px, 100%); margin-inline: auto; padding-inline: 16px; }
 
-  .dial { width: min(620px, 100%); margin-inline: auto; display: flex; flex-direction: column; gap: 6px; }
+  /* Pinned to the top of the screen while the cloud below it is in view: the
+     reader can drag the threshold and watch words drop out without scrolling
+     back up. The page colour behind it, fading out at its foot, keeps the
+     words passing underneath from showing through its labels. */
+  .dial {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    /* The band spans the whole cloud so no word shows beside the slider; the
+       slider and its labels keep their own narrower measure inside it. */
+    width: 100%;
+    padding: 14px 0 22px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(180deg, #f3f6fb 80%, rgba(243, 246, 251, 0));
+  }
+  /* :is() lifts this above the range input's own `width: 100%`. */
+  .dial > :is(label, input, .scale) { width: min(620px, 100%); }
   .dial label { font-size: 0.95rem; text-align: center; color: var(--text-secondary); }
   .dial strong { color: var(--text-primary); }
   input[type='range'] {
