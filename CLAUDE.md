@@ -131,7 +131,8 @@ How 50 cities' official tourism sites describe themselves, and which cities soun
   so the disagreement is visible.
 - **`Archetype` is not the most-mentioned theme.** It is the theme with the
   highest rate ÷ corpus-mean ratio, among themes clearing 9.0 mentions/1k words.
-  Food leads corpus-wide, so raw counts would make nearly everyone a Gourmand.
+  History, Nature and Food lead corpus-wide (13 cities each by raw rate), so raw
+  counts would split nearly everyone between three labels.
 - `Personality` is the rhetorical counterpart: how a city sells, from the tagged
   vocabulary rates. 9 personalities + **The Understated** (8 of 50 cities scored
   below 0.5 sd and are not leaning on anything).

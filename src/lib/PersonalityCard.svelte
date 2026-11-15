@@ -76,17 +76,19 @@
         {:else}
           <div class="frame detail">
             <h3 class="small">{city.city}</h3>
+            <!-- Three facts, each a label and one big value. "Stands out for",
+                 not "talks most about": the dominant theme is the highest
+                 rate against the corpus mean, not the most-mentioned theme. -->
             <dl>
-              <dt>What it over-indexes on</dt>
-              <dd><strong>{city.dominantTheme}</strong>, {city.themeOverIndex.toFixed(1)}× the fifty-city average</dd>
-              <dt>Strength of its main move</dt>
-              <dd><strong>{city.personalityStrength.toFixed(2)} standard deviations</strong> above the fifty-city average</dd>
-              <dt>It also leans on</dt>
-              {#each also as p (p)}
-                <dd><strong>{p.replace('The ', '')}</strong>: {VOICE_SHORT[p]}</dd>
-              {/each}
-              <dt>Its signature word</dt>
-              <dd><strong>{city.signatureWord || 'none'}</strong></dd>
+              <dt>Stands out for</dt>
+              <dd class="big">{city.dominantTheme} <small>{city.themeOverIndex.toFixed(1)}× the average</small></dd>
+              <dt>Sells like</dt>
+              <dd class="big">{city.personality}</dd>
+              <dd class="also">
+                {#each also as p (p)}<span title={VOICE_SHORT[p]}>also {p.replace('The ', '')}</span>{/each}
+              </dd>
+              <dt>Signature word</dt>
+              <dd class="big">{city.signatureWord || 'none'}</dd>
             </dl>
             {#if city.siteLink}
               <a class="site" href={city.siteLink} target="_blank" rel="noreferrer">Read the tourism site</a>
@@ -181,9 +183,12 @@
   .detail { align-items: flex-start; text-align: left; }
   .small { font-size: 10cqw; margin-bottom: 1cqw; }
   dl { margin: 0; width: 100%; flex: 1; }
-  dt { margin-top: 5cqw; font-size: 3.8cqw; opacity: 0.85; }
-  dd { margin: 1cqw 0 0; font-size: 5cqw; line-height: 1.25; }
-  dd strong { font-weight: 650; }
+  dt { margin-top: 6cqw; font-size: 3.2cqw; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.8; }
+  dd { margin: 1cqw 0 0; line-height: 1.15; }
+  .big { font-family: var(--display); font-size: 7.4cqw; }
+  .big small { font-family: var(--font, system-ui); font-size: 4cqw; opacity: 0.85; }
+  .also { display: flex; flex-wrap: wrap; gap: 1.6cqw; margin-top: 2.2cqw; }
+  .also span { border: 1px solid rgba(255, 255, 255, 0.6); border-radius: 999px; padding: 0.6cqw 2.6cqw; font-size: 3.6cqw; }
   .site { font-size: 3.7cqw; color: #fff; text-underline-offset: 3px; }
   .site:hover { color: #fff; }
   .site:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }

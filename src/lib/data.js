@@ -23,6 +23,94 @@ export const THEMES = [
 ];
 
 /**
+ * The ten theme lexicons, verbatim from the pipeline (THEMES in
+ * 3-story-analysis/story.py, also listed in vocabulary.csv), written as Python
+ * patterns. Every one starts at a word boundary, so "eat" no longer matches
+ * inside "great"; five carry an exclusion (operations, trailer, techniques,
+ * designated, Canaletto). Joined in this order and matched case-insensitive,
+ * they reproduce every `<Theme> count` in the CSV. Change a pattern here only
+ * together with the pipeline.
+ */
+export const THEME_PATTERNS = {
+  'Food': ['\\brestaurant', '\\bcuisine', '\\bfood', '\\bdish', '\\bchef', '\\bmarket', '\\bstreet food', '\\bculinary', '\\bgastronom', '\\bdining', '\\beat', '\\bbar\\b', '\\bcafe', '\\bcaf[eé]', '\\bbeer', '\\bwine', '\\bbrewery', '\\bmichelin', '\\btaste', '\\bflavou?r', '\\bdelicac'],
+  'History': ['\\bhistor', '\\bcentur', '\\bmedieval', '\\bancient', '\\bheritage', '\\bmonument', '\\bcastle', '\\bpalace', '\\bruins', '\\bempire', '\\bdynasty', '\\bwar\\b', '\\bold town', '\\bunesco', '\\btradition', '\\bfounded', '\\bbaroque', '\\bgothic', '\\brenaissance'],
+  'Art & Culture': ['\\bmuseum', '\\bgallery', '\\bart\\b', '\\bartist', '\\btheatre', '\\btheater', '\\bopera(?!tion)', '\\bconcert', '\\bmusic', '\\bfestival', '\\bexhibition', '\\bsculpture', '\\bcultural', '\\bliterature', '\\bcinema', '\\bfilm'],
+  'Nature': ['\\bpark', '\\bgarden', '\\bmountain', '\\blake', '\\briver', '\\bforest', '\\bhike', '\\bhiking', '\\bnature', '\\bgreen', '\\bwildlife', '\\btrail(?!er)', '\\bisland', '\\bvalley', '\\bscenic', '\\blandscape', '\\boutdoor'],
+  'Beach & Water': ['\\bbeach', '\\bcoast', '\\bsea\\b', '\\bocean', '\\bharbou?r', '\\bsail', '\\bswim', '\\bsurf', '\\bwaterfront', '\\bbay\\b', '\\bcanal(?!etto)', '\\bport\\b', '\\bcruise'],
+  'Nightlife': ['\\bnightlife', '\\bclub\\b', '\\bclubbing', '\\bparty', '\\bpub\\b', '\\bcocktail', '\\bdance', '\\blate[- ]night', '\\bafter dark', '\\bdjs?\\b'],
+  'Shopping': ['\\bshopping', '\\bshop\\b', '\\bboutique', '\\bmall', '\\bstore', '\\bsouvenir', '\\bbazaar', '\\bdesigner', '\\bfashion', '\\bretail'],
+  'Architecture': ['\\barchitect', '\\bskyline', '\\btower', '\\bbuilding', '\\bfacade', '\\bcathedral', '\\bchurch', '\\bmosque', '\\btemple', '\\bbridge', '\\bskyscraper', '\\bdesign(?!at)'],
+  'Modern & Business': ['\\bbusiness', '\\binnovation', '\\btech(?!niqu)', '\\bstartup', '\\bconference', '\\bfinancial', '\\bmodern', '\\bcontemporary', '\\beconomy', '\\bindustry', '\\bsmart city'],
+  'Family': ['\\bfamily', '\\bkids', '\\bchildren', '\\bzoo', '\\baquarium', '\\btheme park', '\\bplayground', '\\bamusement']
+};
+
+/**
+ * Where in its own description a city mentions each theme.
+ *
+ * For every theme, one entry per match: `at` is the match's position in the
+ * text from 0 (first character) to 1 (last), `word` the whole word the match
+ * sits in, and `context` the words around it, for a tooltip. A pattern is a
+ * stem ("histor") or can land mid-word ("eat" in "great"), so `word` widens
+ * the match to its word: the reader sees "history", and sees "great" counted
+ * as food if that is what the lexicon did. Positions are relative to the
+ * city's own description, so a long site and a short one both run 0 to 1.
+ */
+/**
+ * A theme's patterns as one JavaScript regex.
+ *
+ * Python's `\b` knows accented letters and JavaScript's does not, so a
+ * boundary at either end of a pattern becomes an explicit look-around on
+ * letters, marks, digits and underscore. Without it "é" would count as a word
+ * edge here and the two languages would disagree on words like "caféeat".
+ */
+const WORD = '[\\p{L}\\p{M}\\p{N}_]';
+export function themeRegex(theme) {
+  const parts = THEME_PATTERNS[theme].map((p) =>
+    `(?:${p.replace(/^\\b/, `(?<!${WORD})`).replace(/\\b$/, `(?!${WORD})`)})`
+  );
+  return new RegExp(parts.join('|'), 'giu');
+}
+
+export function themeMentions(city) {
+  const text = city.description ?? '';
+  const len = Math.max(1, text.length);
+  const around = (start, end) => {
+    let a = Math.max(0, start - 48);
+    let b = Math.min(text.length, end + 48);
+    if (a > 0) a = text.indexOf(' ', a) + 1 || a;
+    if (b < text.length) b = text.lastIndexOf(' ', b) > end ? text.lastIndexOf(' ', b) : b;
+    return `${a > 0 ? '…' : ''}${text.slice(a, b).replace(/\s+/g, ' ').trim()}${b < text.length ? '…' : ''}`;
+  };
+  const letter = /[\p{L}\p{M}]/u;
+  const wordAt = (start, end) => {
+    let a = start;
+    let b = end;
+    while (a > 0 && letter.test(text[a - 1])) a--;
+    while (b < text.length && letter.test(text[b])) b++;
+    return text.slice(a, b);
+  };
+  const out = {};
+  for (const theme of THEMES) {
+    out[theme] = [...text.matchAll(themeRegex(theme))].map((m) => ({
+      at: m.index / len,
+      word: wordAt(m.index, m.index + m[0].length),
+      context: around(m.index, m.index + m[0].length)
+    }));
+  }
+  return out;
+}
+
+/** The distinct whole words behind a theme's mentions, first-seen, case-folded. */
+export function mentionWords(list) {
+  const seen = new Map();
+  for (const { word } of list) {
+    const key = word.toLowerCase();
+    if (!seen.has(key)) seen.set(key, key);
+  }
+  return [...seen.values()];
+}
+
+/**
  * The nine personality dimensions and the per-1k-word rate columns each is
  * built from (the pipeline's VOICE map). A dimension built from two columns
  * takes the mean of their z-scores.

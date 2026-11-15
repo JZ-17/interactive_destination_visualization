@@ -28,27 +28,58 @@
 </svg>
 {#if plane}
   <svg class="sky-art" viewBox="0 0 1200 760" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-    <!-- An airliner flying straight at you: tail behind, then wings, then nose.
-         Unfiltered, so its edges stay crisp; only the clouds are soft. -->
+    <!-- An airliner flying straight at you, drawn the way one actually looks
+         head-on: tail behind, then a low wing with a little dihedral, engines
+         slung under it on pylons, and the fuselage in front of it all. Each
+         part takes one shadow tone along its underside, so the fuselage reads
+         as a tube rather than a disc and the wing has an edge where it meets
+         it. Cockpit panes, not a single visor, and no nose ellipse: together
+         those two read as a face. Unfiltered, so its edges stay crisp; only
+         the clouds are soft.
+
+         Drawn at full size, then scaled to 85% about the fuselage, so the
+         words that fan out of it have open sky to land in. -->
     <g class="plane" transform="rotate({bank} 600 400) translate(0 {bob})">
-      <g fill="#f4f7fd">
-        <path d="M590 330 L584 176 Q600 164 616 176 L610 330 Z" />
-        <path d="M600 292 L436 272 L432 286 L600 328 L768 286 L764 272 Z" />
+      <g transform="translate(600 410) scale(0.85) translate(-600 -410)">
+        <!-- Tail: fin and stabilisers, a shade back from the white in front. -->
+        <g fill="#eef2fa">
+          <path d="M591 336 L595 176 Q600 168 605 176 L609 336 Z" />
+          <path d="M600 360 L452 338 Q446 338 447 344 L600 378 L753 344 Q754 338 748 338 Z" />
+          <path d="M106 372 L92 330 Q91 324 97 326 L114 369 Z" />
+          <path d="M1094 372 L1108 330 Q1109 324 1103 326 L1086 369 Z" />
+        </g>
+        <!-- Wings: the shade first, then the white upper surface a few units
+             thinner, which leaves a lit leading edge over a shaded underside. -->
+        <g fill="#d3dcf1">
+          <path d="M600 430 L112 368 Q102 367 102 373 L104 378 L600 454 Z" />
+          <path d="M600 430 L1088 368 Q1098 367 1098 373 L1096 378 L600 454 Z" />
+        </g>
+        <g fill="#fff">
+          <path d="M600 430 L112 368 Q102 367 102 373 L104 374 L600 446 Z" />
+          <path d="M600 430 L1088 368 Q1098 367 1098 373 L1096 374 L600 446 Z" />
+        </g>
+        {#each [410, 790] as cx (cx)}
+          <!-- Pylon, nacelle with its shaded underside, intake lip, fan, spinner.
+               The fan blades are one dashed stroke round the spinner. -->
+          <rect x={cx - 7} y="420" width="14" height="20" rx="3" fill="#e3e9f6" />
+          <circle {cx} cy="476" r="40" fill="#d6dff2" />
+          <circle {cx} cy="473" r="38" fill="#fff" />
+          <circle {cx} cy="476" r="29" fill="#4f6396" />
+          <circle {cx} cy="476" r="25" fill="#7a8fc2" />
+          <circle {cx} cy="476" r="16" fill="none" stroke="#6479ad" stroke-width="18" stroke-dasharray="2.2 6" />
+          <circle {cx} cy="476" r="7" fill="#f1f4fb" />
+        {/each}
+        <!-- Fuselage: a shadow ellipse with the white one lifted off it, leaving
+             a crescent along the belly. -->
+        <ellipse cx="600" cy="405" rx="80" ry="84" fill="#d6dff2" />
+        <ellipse cx="600" cy="398" rx="77" ry="79" fill="#fff" />
+        <g fill="#34476f">
+          <path d="M556 372 Q575 365 597 363 L597 383 Q578 385 560 391 Z" />
+          <path d="M644 372 Q625 365 603 363 L603 383 Q622 385 640 391 Z" />
+          <path d="M533 386 L551 375 L556 393 L540 401 Z" />
+          <path d="M667 386 L649 375 L644 393 L660 401 Z" />
+        </g>
       </g>
-      <g fill="#fff">
-        <path d="M600 414 L104 366 Q84 364 84 376 L600 456 L1116 376 Q1116 364 1096 366 Z" />
-        <path d="M86 376 L66 330 L76 328 L104 368 Z" />
-        <path d="M1114 376 L1134 330 L1124 328 L1096 368 Z" />
-      </g>
-      {#each [352, 848] as cx (cx)}
-        <circle {cx} cy="456" r="46" fill="#fff" />
-        <circle {cx} cy="456" r="35" fill="#9db1dc" />
-        <circle {cx} cy="456" r="8" fill="#fff" />
-      {/each}
-      <ellipse cx="600" cy="408" rx="94" ry="98" fill="#fff" />
-      <path d="M528 378 Q600 346 672 378 L660 402 Q600 380 540 402 Z" fill="#7f97cf" />
-      <path d="M600 354 V388" stroke="#fff" stroke-width="3" />
-      <ellipse cx="600" cy="478" rx="52" ry="20" fill="#e3e9f7" />
     </g>
   </svg>
 {/if}

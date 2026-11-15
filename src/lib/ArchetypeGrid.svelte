@@ -64,7 +64,7 @@
       {#if groupBy === 'archetype'}
         Its <strong>archetype</strong> — the theme it mentions furthest above the
         corpus average, among themes clearing 9 mentions per 1,000 words. Not the
-        theme it mentions most: food leads almost everywhere.
+        theme it mentions most: history, nature or food leads almost everywhere.
       {:else}
         Its <strong>personality</strong> — the rhetorical move it over-uses, from
         the tagged vocabulary rates. <em>The Understated</em> means no move scored

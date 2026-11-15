@@ -2,10 +2,10 @@
   /**
    * Every city as one dot along the measure, so the shape of the ranking and
    * where your cities stand in it are visible before reading a single card.
-   * Dots stack where values coincide. Position is the value; each dot is drawn
-   * the way its card is, the city's own hue inside a ring in its category
-   * colour, so a dot and its card read as the same city. The reader's cities
-   * wear their ticket colour inside the ring instead, as their cards do.
+   * Dots stack where values coincide. Position is the value and colour is
+   * category, nothing else: a plain dot in blue or amber. The reader's cities
+   * are the one exception, their ticket colour inside a ring in their
+   * category colour, flagged and named.
    */
   import { scaleLinear } from 'd3-scale';
 
@@ -61,8 +61,6 @@
       anchor: d.x < 60 ? 'start' : d.x > width - 60 ? 'end' : 'middle'
     }));
   });
-  /** The same hue the city's card uses for its bar. */
-  const cityFill = (c) => `hsl(${c.hue} 58% 47%)`;
 
   let hoverDot = $derived(
     dots.find((d) => d.city.city === hoveredCity && !picks.includes(d.city.city)) ?? null
@@ -91,7 +89,6 @@
         >
           <title>{d.city.city}: {measure.get(d.city).toFixed(1)}</title>
           <circle class="ring" cx={d.x} cy={d.y} r="6.2" />
-          <circle class="core" cx={d.x} cy={d.y} r="3.6" style="fill:{cityFill(d.city)}" />
         </g>
       {/if}
     {/each}
@@ -101,7 +98,7 @@
       <g class="held" class:gem={f.city.category === 'hidden'} role="presentation" onclick={() => onpick(f.city.city)}>
         <title>{f.city.city}: {measure.get(f.city).toFixed(1)}</title>
         <circle class="ring" cx={f.x} cy={f.y} r="9" />
-        <circle class="core" cx={f.x} cy={f.y} r="5.4" style="fill:{spots.get(f.city.city) ?? cityFill(f.city)}" />
+        <circle class="core" cx={f.x} cy={f.y} r="5.4" style="fill:{spots.get(f.city.city) ?? 'var(--text-primary)'}" />
       </g>
       <text class="flag" x={f.x} y={M.top - 14 - f.lift} text-anchor={f.anchor}>{f.city.city}</text>
     {/each}
@@ -118,9 +115,8 @@
   .base { stroke: var(--axis); }
   .tickmark { stroke: var(--axis); }
   .tick, .unit { font-size: 11px; fill: var(--text-secondary); }
-  /* The ring is the category; a thin white gap keeps it from melting into a
-     core whose hue happens to sit near blue or amber, and the page-coloured
-     edge separates dots that stack. */
+  /* The dot is the category. The page-coloured edge separates dots that
+     stack; a held city's ticket core sits inside its ring behind a white gap. */
   .dot, .held { cursor: pointer; }
   .ring { fill: var(--big); stroke: #f3f6fb; stroke-width: 1.2; }
   .gem .ring { fill: var(--gem); }

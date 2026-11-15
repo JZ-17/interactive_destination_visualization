@@ -170,7 +170,7 @@
       <h2>What cities talk about</h2>
       <p class="body">
         Ten themes, measured as mentions per 1,000 words so a 200-word homepage
-        and a 2,000-word one can be compared. Food leads the corpus; the
+        and a 2,000-word one can be compared. History, nature and food lead the corpus; the
         extremes carry the story. Tasmania mentions nature 111 times per 1,000
         words. Pick a theme and read down the column.
       </p>
