@@ -4,7 +4,8 @@
    * beside its profile on all nine selling moves.
    *
    * Laid out like the themes scene above it: a heading and one line, then the
-   * evidence on the left and the profile on a white card on the right.
+   * quotes as white cards with the numbers beside them, then the profile on a
+   * full-width card below.
    *
    * The evidence: the personality is a way of talking,
    * so the proof is quotation: the sentences the site wrote, the phrase that
@@ -47,7 +48,8 @@
   const unit = (label, n) => (n === 1 ? label.replace(/ies$/, 'y').replace(/s$/, '') : label);
 
   // --- the profile chart (D3 margin convention, marks drawn by Svelte) -----
-  const W = 560;
+  // Drawn at the card's real width, so labels keep their size at any width.
+  let W = $state(900);
   const ROW = 30;
   const M = { top: 4, right: 44, bottom: 44, left: 112 };
   let H = $derived(M.top + moves.length * ROW + M.bottom);
@@ -74,15 +76,17 @@
     </p>
   </header>
 
-  <div class="body" class:solo={!quotes.length && !best}>
-    {#if quotes.length || best}
-      <div class="evidence">
+  {#if quotes.length || best}
+    <div class="evidence">
+      <div class="quotes">
         {#each quotes as parts, i (i)}
           <blockquote>
             {#each parts as part, j (j)}{#if part.hit}<strong>{part.text}</strong>{:else}{part.text}{/if}{/each}
           </blockquote>
         {/each}
+      </div>
 
+      <aside class="facts">
         {#if best}
           <dl class="stats">
             <div><dt>{unit(best.label, best.count)} in {words(city.wordCount)} words</dt><dd>{words(best.count)}</dd></div>
@@ -90,19 +94,20 @@
             <div><dt>the fifty-city average of {best.avg.toFixed(1)}</dt><dd>{(best.rate / best.avg).toFixed(1)}×</dd></div>
           </dl>
         {/if}
-
         {#if thin}
           <p class="caveat">
             Keep in mind that {city.city}’s description is {words(city.wordCount)} words long, so
             {best.count === 1 ? 'a single word' : 'two words'} can carry the whole label.
           </p>
         {/if}
-      </div>
-    {/if}
+      </aside>
+    </div>
+  {/if}
 
-    <figure class="profile">
-      <figcaption>Each bar is one selling move, against the fifty-city average.</figcaption>
-      <svg viewBox="0 0 {W} {H}" role="img" aria-label="{city.city} on the nine selling moves, in standard deviations from the fifty-city average">
+  <figure class="profile">
+    <figcaption>Each bar is one selling move, against the fifty-city average.</figcaption>
+    <div class="plot" bind:clientWidth={W}>
+      <svg width={W} height={H} role="img" aria-label="{city.city} on the nine selling moves, in standard deviations from the fifty-city average">
         <line class="zero" x1={x(0)} x2={x(0)} y1={M.top} y2={H - M.bottom} />
         <line class="bar-line" x1={x(THRESHOLD)} x2={x(THRESHOLD)} y1={M.top} y2={H - M.bottom} />
         {#each moves as m, i (m.p)}
@@ -123,8 +128,8 @@
         <text class="tick" x={x(THRESHOLD) + 4} y={H - M.bottom + 16} text-anchor="start">0.5: a personality</text>
         <text class="axis" x={M.left} y={H - 6}>standard deviations from the fifty-city average</text>
       </svg>
-    </figure>
-  </div>
+    </div>
+  </figure>
 </section>
 
 <style>
@@ -135,22 +140,21 @@
   .lede { margin-top: 8px; max-width: 62ch; color: var(--text-secondary); line-height: 1.5; }
   .lede strong { color: var(--text-primary); font-weight: 650; }
 
-  .body {
+  /* Quotes on the left, the numbers that back them in a column on the right. */
+  .evidence {
     margin-top: 28px;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: clamp(24px, 4vw, 48px);
+    grid-template-columns: minmax(0, 1fr) minmax(200px, 260px);
+    gap: clamp(20px, 3.5vw, 44px);
     align-items: start;
   }
-  .body.solo { grid-template-columns: minmax(0, 600px); }
-  @media (max-width: 860px) { .body { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 760px) { .evidence { grid-template-columns: minmax(0, 1fr); } }
 
-  .evidence { display: grid; gap: 14px; }
+  .quotes { display: grid; gap: 14px; }
   blockquote {
     margin: 0;
-    padding: 16px 20px;
-    border-left: 4px solid var(--ticket);
-    border-radius: 0 16px 16px 0;
+    padding: var(--card-pad);
+    border-radius: var(--card-radius);
     background: #fff;
     box-shadow: var(--card-shadow);
     font-size: 0.98rem;
@@ -159,22 +163,25 @@
   }
   blockquote strong { color: var(--text-primary); font-weight: 650; }
 
-  .stats { margin: 10px 0 0; display: flex; flex-wrap: wrap; gap: 14px 40px; }
+  .facts { display: grid; gap: 20px; }
+  .stats { margin: 0; display: grid; gap: 18px; }
+  /* dt before dd, as a <dl> requires; shown number-first. */
   .stats div { display: flex; flex-direction: column-reverse; gap: 2px; }
-  .stats dd { margin: 0; font-family: var(--display); font-size: 2rem; line-height: 1.05; font-variant-numeric: tabular-nums; }
-  .stats dt { font-size: 0.78rem; color: var(--text-muted); }
+  .stats dd { margin: 0; font-family: var(--display); font-size: 2.2rem; line-height: 1; font-variant-numeric: tabular-nums; }
+  .stats dt { font-size: 0.8rem; line-height: 1.35; color: var(--text-muted); }
 
-  .caveat { font-size: 0.86rem; line-height: 1.5; color: var(--text-secondary); max-width: 56ch; }
+  .caveat { font-size: 0.86rem; line-height: 1.5; color: var(--text-secondary); }
 
   .profile {
-    margin: 0;
+    margin: 28px 0 0;
     padding: var(--card-pad);
     border-radius: var(--card-radius);
     background: #fff;
     box-shadow: var(--card-shadow);
   }
   figcaption { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 14px; }
-  svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .plot { width: 100%; }
+  svg { display: block; overflow: visible; }
   .zero { stroke: #8b90a3; stroke-width: 1; }
   .bar-line { stroke: #8b90a3; stroke-width: 1; stroke-dasharray: 3 3; }
   .bar { fill: #c3cbdb; }

@@ -40,15 +40,35 @@
 </script>
 
 <div class="cloud-scene">
+  <!-- What the cloud is and what the slider does, said once, before either:
+       the same heading-and-line opening as every other scene. -->
+  <header class="scene-head">
+    <h2>Explore {city.city}’s fingerprint</h2>
+    <p class="lede">
+      Every word on {city.city}’s site, sized by how often it writes it. Drag the slider to
+      fade out the words other cities use too. The words that stay dark are the ones
+      few or no other cities write.
+    </p>
+  </header>
+
   <!-- The slider and the cloud it filters share one box, so the slider stays
        pinned while the cloud scrolls past and lets go before the stamp. -->
   <div class="cloud-area">
   <div class="dial">
     <label for="others">
-      Keep words found in at most <strong>{maxOthers}</strong> other {maxOthers === 1 ? 'city' : 'cities'}
+      <span>
+        {#if maxOthers === 0}
+          Showing words <strong>no other city</strong> uses
+        {:else if maxOthers === 49}
+          Showing <strong>every word</strong>, however common
+        {:else}
+          Showing words that at most <strong>{maxOthers}</strong> other {maxOthers === 1 ? 'city uses' : 'cities use'}
+        {/if}
+      </span>
+      <span class="left" aria-live="polite"><strong>{lit.size}</strong> of {field.length} words left</span>
     </label>
     <input id="others" type="range" min="0" max="49" bind:value={maxOthers} style="--plane:{thumb(ticket)}" />
-    <p class="scale" aria-hidden="true"><span>only {city.city}</span><span>all 50</span></p>
+    <p class="scale" aria-hidden="true"><span>only {city.city}</span><span>every word</span></p>
   </div>
 
   <ul class="cloud" aria-label="Every word {city.city} writes" onmouseleave={() => (hover = null)}>
@@ -92,6 +112,10 @@
 
 <style>
   .cloud-scene { width: min(1180px, 100%); margin-inline: auto; padding-inline: 16px; }
+  /* The heading keeps the shared scene measure even though the cloud runs wider. */
+  .scene-head { width: min(calc(var(--scene-w) - 32px), 100%); margin: 0 auto 8px; }
+  h2 { font-family: var(--display); font-size: var(--scene-h2); font-weight: 400; letter-spacing: -0.01em; line-height: 1.1; text-wrap: balance; }
+  .lede { margin-top: 8px; max-width: 62ch; line-height: 1.5; color: var(--text-secondary); }
 
   /* Pinned to the top of the screen while the cloud below it is in view: the
      reader can drag the threshold and watch words drop out without scrolling
@@ -113,7 +137,8 @@
   }
   /* :is() lifts this above the range input's own `width: 100%`. */
   .dial > :is(label, input, .scale) { width: min(620px, 100%); }
-  .dial label { font-size: 0.95rem; text-align: center; color: var(--text-secondary); }
+  .dial label { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 0.95rem; text-align: center; color: var(--text-secondary); }
+  .dial .left { font-size: 0.8rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
   .dial strong { color: var(--text-primary); }
   input[type='range'] {
     -webkit-appearance: none;
