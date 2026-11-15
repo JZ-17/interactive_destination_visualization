@@ -83,7 +83,7 @@
         {score.unique} of the {score.total} different words {city.city} writes, no other city writes at all.
       </p>
       <p class="small">
-        Its description runs {city.wordCount} words, {score.lengthRank === 1 ? 'the longest' : score.lengthRank === 50 ? 'the shortest' : `the ${ord(score.lengthRank)} longest`} of the fifty.
+        Keep in mind that its description runs {city.wordCount.toLocaleString('en-US')} words, {score.lengthRank === 1 ? 'the longest' : score.lengthRank === 50 ? 'the shortest' : `the ${ord(score.lengthRank)} longest`} of the fifty.
         Longer sites have more room for a word nobody else used.
       </p>
     </div>
@@ -193,13 +193,17 @@
   }
   .cloud li:hover .tip, .cloud li:focus-within .tip { display: block; }
 
+  /* The verdict gets a screen of its own: once the cloud has scrolled away,
+     the stamp and its sentence sit alone, centred, with nothing else in view. */
   .verdict {
     display: grid;
     grid-template-columns: minmax(150px, 230px) minmax(0, 560px);
     justify-content: center;
+    align-content: center;
     align-items: center;
     gap: clamp(20px, 4vw, 48px);
-    margin-top: 56px;
+    min-height: 100svh;
+    padding-block: 48px;
   }
   .big { font-family: var(--display); font-size: clamp(1.5rem, 3.2vw, 2.3rem); line-height: 1.16; letter-spacing: -0.012em; }
   .small { margin-top: 12px; font-size: 0.86rem; line-height: 1.5; color: var(--text-secondary); }

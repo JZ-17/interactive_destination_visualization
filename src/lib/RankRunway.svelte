@@ -28,7 +28,8 @@
 
   let x = $derived(
     scaleLinear()
-      .domain([0, Math.max(1e-9, ...cities.map(measure.get))])
+      // From zero for a rate; from below zero for a score that can be negative.
+      .domain([Math.min(0, ...cities.map(measure.get)), Math.max(1e-9, ...cities.map(measure.get))])
       .range([M.left, width - M.right])
       .nice()
   );
@@ -75,6 +76,10 @@
       <text class="tick" x={x(t)} y={M.top + STACK_H + 21} text-anchor="middle">{t}</text>
     {/each}
     <text class="unit" x={M.left} y={height - 4}>{measure.label}, {measure.unit}</text>
+    {#if x.domain()[0] < 0}
+      <!-- The fifty-city average, when the scale runs either side of it. -->
+      <line class="avg" x1={x(0)} x2={x(0)} y1={M.top - 6} y2={M.top + STACK_H + 3} />
+    {/if}
 
     {#each dots as d (d.city.city)}
       {#if !picks.includes(d.city.city)}
@@ -115,10 +120,11 @@
   .base { stroke: var(--axis); }
   .tickmark { stroke: var(--axis); }
   .tick, .unit { font-size: 11px; fill: var(--text-secondary); }
+  .avg { stroke: var(--axis); stroke-dasharray: 3 3; }
   /* The dot is the category. The page-coloured edge separates dots that
      stack; a held city's ticket core sits inside its ring behind a white gap. */
   .dot, .held { cursor: pointer; }
-  .ring { fill: var(--big); stroke: #f3f6fb; stroke-width: 1.2; }
+  .ring { fill: var(--big); stroke: var(--surface, #f3f6fb); stroke-width: 1.2; }
   .gem .ring { fill: var(--gem); }
   .core { stroke: #fff; stroke-width: 1.1; }
   .dot.hovered .ring { stroke: var(--text-primary); stroke-width: 2; }
@@ -127,11 +133,11 @@
   /* The halo keeps a neighbour's flagpole off the letters. */
   .flag {
     font-family: var(--display); font-size: 16px; fill: var(--text-primary);
-    paint-order: stroke; stroke: #f3f6fb; stroke-width: 5; stroke-linejoin: round;
+    paint-order: stroke; stroke: var(--surface, #f3f6fb); stroke-width: 5; stroke-linejoin: round;
   }
   .hover-label {
     font-size: 12px; font-weight: 650; fill: var(--text-primary);
-    paint-order: stroke; stroke: #f3f6fb; stroke-width: 4; stroke-linejoin: round;
+    paint-order: stroke; stroke: var(--surface, #f3f6fb); stroke-width: 4; stroke-linejoin: round;
     pointer-events: none;
   }
 </style>

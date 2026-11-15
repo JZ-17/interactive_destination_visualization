@@ -69,10 +69,13 @@
   /* Nothing in here is interactive, and the band paints over the foot of the
      scene above it (the personality card's Flip button hangs there), so it
      lets every click through. */
+  /* A full screen each: the sentence is the only thing in view as it passes,
+     so every turn in the journey reads as its own moment, not as a caption
+     squeezed between two scenes. */
   .interlude {
     pointer-events: none;
     position: relative;
-    min-height: 62vh;
+    min-height: 100svh;
     display: flex;
     align-items: center;
     justify-content: center;

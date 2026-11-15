@@ -109,6 +109,73 @@ export function themeMentions(city) {
   return out;
 }
 
+/**
+ * Up to `n` passages from a city's description showing one personality at
+ * work. Each distinct matched phrase is found again in the text and widened to
+ * whole words and numbers ("000 years" reads "3,000 years"), then given about
+ * ten words either side. Passages that overlap are merged into one, so two
+ * phrases from the same sentence are quoted once with both set bold. Each
+ * passage is a list of `{ text, hit }` parts.
+ */
+export function voiceQuotes(city, personality, n = 3) {
+  const text = city.description ?? '';
+  const lower = text.toLowerCase();
+  const tidy = (t) => t.replace(/\s+/g, ' ');
+  const inWord = (ch) => /[\p{L}\p{N}]/u.test(ch ?? '');
+  const PAD = 70;
+
+  // Every distinct phrase, located and widened.
+  const hits = [];
+  const seen = new Set();
+  for (const term of city.voiceTerms?.[personality] ?? []) {
+    for (const w of term.words) {
+      const key = w.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      let at = lower.indexOf(key);
+      if (at < 0) continue;
+      let end = at + w.length;
+      while (at > 0 && (inWord(text[at - 1]) || (/[,.]/.test(text[at - 1]) && /\d/.test(text[at - 2] ?? '')))) at--;
+      while (end < text.length && inWord(text[end])) end++;
+      if (!hits.some((h) => at < h.end && end > h.at)) hits.push({ at, end });
+    }
+  }
+  hits.sort((x, y) => x.at - y.at);
+
+  // A window round each hit, cut at spaces; overlapping windows merge.
+  const windows = [];
+  for (const h of hits) {
+    let a = Math.max(0, h.at - PAD);
+    let b = Math.min(text.length, h.end + PAD);
+    if (a > 0) a = text.indexOf(' ', a) + 1 || a;
+    if (b < text.length) b = text.lastIndexOf(' ', b) > h.end ? text.lastIndexOf(' ', b) : b;
+    const last = windows[windows.length - 1];
+    if (last && a <= last.b) {
+      last.b = Math.max(last.b, b);
+      last.hits.push(h);
+    } else {
+      windows.push({ a, b, hits: [h] });
+    }
+  }
+
+  return windows.slice(0, n).map(({ a, b, hits: hs }) => {
+    const parts = [];
+    let pos = a;
+    for (const h of hs) {
+      if (h.at > pos) parts.push({ text: tidy(text.slice(pos, h.at)), hit: false });
+      parts.push({ text: text.slice(h.at, h.end), hit: true });
+      pos = h.end;
+    }
+    if (b > pos) parts.push({ text: tidy(text.slice(pos, b)), hit: false });
+    if (parts[0] && !parts[0].hit) parts[0].text = parts[0].text.trimStart();
+    const tail = parts[parts.length - 1];
+    if (tail && !tail.hit) tail.text = tail.text.trimEnd();
+    if (a > 0) parts.unshift({ text: '…', hit: false });
+    if (b < text.length) parts.push({ text: '…', hit: false });
+    return parts;
+  });
+}
+
 /** The distinct whole words behind a theme's mentions, first-seen, case-folded. */
 export function mentionWords(list) {
   const seen = new Map();
@@ -180,6 +247,29 @@ export const VOICE_SHORT = {
  * ticket's white type at 5:1 or better, and none sits near the two category
  * colours. The Understated keeps the ticket's original brown.
  */
+/**
+ * The tagged-vocabulary columns behind each personality, keyed by the rate
+ * column's stem: where its matched words are listed, where they are counted,
+ * and what to call them in a sentence ("1 surprise word in 123 words").
+ */
+export const VOICE_TERMS = {
+  'Rank words': { list: 'Rank words', count: 'Rank words count', label: 'ranking words' },
+  'Numeric scale': { list: 'Numeric scale', count: 'Numeric scale count', label: 'big-number claims' },
+  'Authority borrowing': { list: 'Authority borrowing', count: 'Authority borrowing count', label: 'borrowed authorities' },
+  'UNESCO': { list: 'UNESCO', count: 'UNESCO count', label: 'UNESCO mentions' },
+  'Urgency': { list: 'Urgency', count: 'Urgency count', label: 'urgency words' },
+  'Imperatives': { list: 'Imperatives', count: 'Imperatives count', label: 'commands' },
+  'Second person': { list: 'Second person', count: 'Second person count', label: '“you”s' },
+  'Sensory': { list: 'Sensory', count: 'Sensory count', label: 'sensory words' },
+  'High sentiment noun': { list: 'High sentiment nouns', count: 'High sentiment noun count', label: 'charged nouns' },
+  'Defensive qualifiers': { list: 'Defensive qualifiers', count: 'Defensive qualifiers count', label: 'defensive qualifiers' },
+  'Surprise': { list: 'Surprise', count: 'Surprise count', label: 'surprise words' },
+  'Price and value': { list: 'Price and value', count: 'Price and value count', label: 'price words' },
+  'Sustainability': { list: 'Sustainability', count: 'Sustainability count', label: 'sustainability words' },
+  'Inclusivity': { list: 'Inclusivity', count: 'Inclusivity count', label: 'inclusivity words' },
+  'Cliches': { list: 'Cliches used', count: 'Cliche count', label: 'stock phrases' }
+};
+
 export const VOICE_TICKET = {
   'The Braggart': '#8a3a4a',
   'The Name-Dropper': '#5d4f7d',
@@ -237,7 +327,7 @@ export const TWIN_METHODS = [
   },
   {
     id: 'theme',
-    label: 'Same subjects',
+    label: 'Same themes',
     question: 'Which city talks about the same ten themes in the same proportions?',
     partnerCol: 'Twin (theme profile)',
     scoreCol: 'Theme profile distance',
@@ -534,6 +624,24 @@ export async function loadCities(fetchImpl = fetch) {
         return (num(c._raw[col]) - mean) / sd;
       });
       c.voice[p] = zs.reduce((s, z) => s + z, 0) / zs.length;
+    });
+
+    // The evidence behind each dimension: per source column, the city's rate,
+    // the corpus mean it is compared with, the exact count, and the words.
+    c.voiceTerms = {};
+    PERSONALITIES.forEach((p) => {
+      c.voiceTerms[p] = VOICE[p].map((col) => {
+        const stem = col.replace(/ per 1k words$/, '');
+        const t = VOICE_TERMS[stem];
+        return {
+          stem,
+          label: t.label,
+          rate: num(c._raw[col]),
+          avg: colStats[col].mean,
+          count: num(c._raw[t.count]),
+          words: list(c._raw[t.list])
+        };
+      });
     });
 
     delete c._raw;

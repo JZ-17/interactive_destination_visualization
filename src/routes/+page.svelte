@@ -22,7 +22,7 @@
   import {
     loadCities, loadCountries, wordIndex, commonWords, corpusWords, cityWords, mentionIndex,
     descriptionIndex, greatCircleKm, DESCRIBING_POOL, VOICE_TICKET, TICKET_DEFAULT, SCRAPED,
-    TWIN_METHODS, IATA, THEMES, axisById, rankCities
+    TWIN_METHODS, IATA, THEMES, PERSONALITIES, axisById, rankCities
   } from '$lib/data.js';
   import { prefersStill } from '$lib/scroll.js';
   import { PLANE } from '$lib/ticketArt.js';
@@ -38,6 +38,7 @@
   import TwinTags from '$lib/TwinTags.svelte';
   import TwinGrid from '$lib/TwinGrid.svelte';
   import ThemeProfile from '$lib/ThemeProfile.svelte';
+  import PersonalityScene from '$lib/PersonalityScene.svelte';
   import ThemeDuel from '$lib/ThemeDuel.svelte';
   import VoiceDumbbell from '$lib/VoiceDumbbell.svelte';
   import PairWords from '$lib/PairWords.svelte';
@@ -110,6 +111,7 @@
     { id: 'boards', label: 'Most common words' },
     { id: 'left', label: 'What is left' },
     { id: 'talk', label: 'What it talks about' },
+    { id: 'sells', label: 'How it sells' },
     { id: 'twins', label: 'Who it sounds like' },
     { id: 'rank', label: 'Rank the 50' },
     { id: 'arrive', label: 'Arrival' },
@@ -120,7 +122,7 @@
   // It opens on the destination's strongest theme. A pick is
   // remembered with the destination it was made for, so a new journey opens
   // on its own city's strongest theme without an effect to reset it.
-  let rankPick = $state({ dest: '', theme: '' });
+  let rankPick = $state({ dest: '', theme: '', by: 'theme', voice: '' });
   let topTheme = $derived.by(() => {
     if (!solo) return THEMES[0];
     let best = null;
@@ -132,8 +134,19 @@
     }
     return best.theme;
   });
-  let rankTheme = $derived(rankPick.dest === dest && rankPick.theme ? rankPick.theme : topTheme);
-  const setRankTheme = (theme) => (rankPick = { dest, theme });
+  // Ranked by a theme or by a selling move. A personality ranking opens on the
+  // destination's own personality, or its strongest lean if it is Understated.
+  let topVoice = $derived.by(() => {
+    if (!solo) return PERSONALITIES[0];
+    if (solo.personality !== 'The Understated') return solo.personality;
+    return [...PERSONALITIES].sort((p, q) => solo.voice[q] - solo.voice[p])[0];
+  });
+  let rankFresh = $derived(rankPick.dest === dest);
+  let rankTheme = $derived(rankFresh && rankPick.theme ? rankPick.theme : topTheme);
+  let rankBy = $derived(rankFresh ? rankPick.by : 'theme');
+  let rankVoice = $derived(rankFresh && rankPick.voice ? rankPick.voice : topVoice);
+  const setRank = (patch) =>
+    (rankPick = { ...(rankFresh ? rankPick : { theme: '', by: 'theme', voice: '' }), dest, ...patch });
 
   function goTo(id, instant = false) {
     document.getElementById(`stop-${id}`)?.scrollIntoView({
@@ -392,15 +405,23 @@
     </div>
 
     <!-- The turn from the fingerprint to the themes: the stamp just counted the
-         words no other city writes, and the next scene sorts all of the city's
-         words into the ten subjects every city shares. -->
-    <Interlude line="The words are {solo.city}’s own. The subjects are everyone’s." route="swoop" />
+         words no other city writes, and the next scene looks for the patterns in
+         all of them, sorted into ten subjects. -->
+    <Interlude line="Are there patterns in the words {solo.city} uses?" route="swoop" />
 
     <!-- Its words sorted into the ten themes, and where each puts it among
          the fifty. Before the personality, because what a city talks about is
          the ground its way of selling stands on. -->
     <div id="stop-talk" class="scene">
       <ThemeProfile {cities} city={solo} />
+    </div>
+
+    <Interlude line="What kind of salesperson is {solo.city}?" route="loop" />
+
+    <!-- What it talks about, then how it sells it: the personality, proved
+         from the site's own sentences, beside all nine selling moves. -->
+    <div id="stop-sells" class="scene">
+      <PersonalityScene city={solo} />
     </div>
 
     <Interlude line="So who does {solo.city} really sound like?" route="climb" />
@@ -418,7 +439,14 @@
     <Interlude line="Now find {solo.city} among the fifty." route="swoop" />
 
     <div id="stop-rank" class="scene">
-      <RankSection {cities} {dest} {compare} theme={rankTheme} ontheme={setRankTheme} onpick={pickFromRank} />
+      <RankSection
+        {cities} {dest} {compare}
+        by={rankBy} theme={rankTheme} voice={rankVoice}
+        onby={(by) => setRank({ by })}
+        ontheme={(theme) => setRank({ theme })}
+        onvoice={(voice) => setRank({ voice })}
+        onpick={pickFromRank}
+      />
     </div>
 
     <!-- The end of the first leg, and the only place a second city is asked for. -->
@@ -548,6 +576,16 @@
     --display: 'Manjari', system-ui, sans-serif;
     --font: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
     --text-muted: #5d6378;
+    /* One set of measures for every scene, read by the components through the
+       cascade: the same width, the same heading size, and the same white card
+       wherever a chart or list sits. --surface is whatever a mark's halo must
+       match; a card resets it to white. */
+    --scene-w: 1040px;
+    --scene-h2: clamp(1.6rem, 3.2vw, 2.4rem);
+    --card-radius: 20px;
+    --card-pad: clamp(18px, 2.6vw, 30px);
+    --card-shadow: 0 1px 2px rgba(25, 30, 59, 0.05), 0 8px 28px rgba(25, 30, 59, 0.07);
+    --surface: #f3f6fb;
     font-family: var(--font);
     /* clip, not hidden: hidden would make this a scroller and break every sticky stage. */
     overflow-x: clip;
@@ -717,11 +755,19 @@
   /* --- the scenes ---------------------------------------------------------- */
   /* Starts on exactly the sky's last stop, coming down out of the clouds. */
   .descent { background: linear-gradient(180deg in oklab, #a6c0ef 0%, #dde6f6 55%, #f3f6fb 100%); }
-  .scene { scroll-margin-top: 16px; }
+  /* Every scene gets a screen of its own, like the interludes between them,
+     with its content centred in it; a taller scene simply grows. */
+  .scene {
+    scroll-margin-top: 16px;
+    min-height: 100svh;
+    display: grid;
+    align-content: center;
+    padding-block: clamp(56px, 9vh, 104px);
+  }
 
   .twin-scene {
     display: grid;
-    grid-template-columns: minmax(220px, 340px) minmax(0, 760px);
+    grid-template-columns: minmax(220px, 300px) minmax(0, 700px);
     justify-content: center;
     align-items: center;
     gap: clamp(28px, 5vw, 64px);
@@ -729,11 +775,12 @@
   }
   h2 {
     font-family: var(--display);
-    font-size: clamp(1.4rem, 2.8vw, 2rem);
+    font-size: var(--scene-h2);
     font-weight: 400;
-    line-height: 1.15;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
   }
-  .pair-twins { width: min(1000px, 100%); margin: 72px auto 0; padding-inline: 16px; }
+  .pair-twins { width: min(var(--scene-w), 100%); margin: 88px auto 0; padding-inline: 16px; }
 
   /* --- the arrival ---------------------------------------------------------- */
   /* A second gate. With a comparison picked it fades into the sky's first stop,

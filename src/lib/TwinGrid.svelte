@@ -32,6 +32,7 @@
   let partners = $derived([...new Set(methods.map((m) => m.partner).filter(Boolean))]);
 </script>
 
+<div class="board">
 <table class="agree">
   <caption class="sr-only">Which city each of four measures says {city.city} sounds most like</caption>
   <thead>
@@ -63,9 +64,17 @@
   Four measures, {COUNT[partners.length]} {partners.length === 1 ? 'answer' : 'answers'}.
   Each is a closest match, not a percentage.
 </p>
+</div>
 
 <style>
-  .agree { width: 100%; margin-top: 14px; border-collapse: collapse; table-layout: fixed; }
+  .board {
+    margin-top: 24px;
+    padding: var(--card-pad);
+    border-radius: var(--card-radius);
+    background: #fff;
+    box-shadow: var(--card-shadow);
+  }
+  .agree { width: 100%; border-collapse: collapse; table-layout: fixed; }
   thead th {
     padding: 0 4px 10px;
     font-size: 0.78rem;
@@ -82,13 +91,13 @@
     font-size: clamp(1.25rem, 2.4vw, 1.6rem);
     font-weight: 400;
     text-align: left;
-    border-top: 1px solid #d6ddea;
+    border-top: 1px solid #e6ebf3;
   }
   tbody td {
     padding: 12px 4px;
     text-align: center;
     vertical-align: middle;
-    border-top: 1px solid #d6ddea;
+    border-top: 1px solid #e6ebf3;
   }
   .dot {
     display: block;

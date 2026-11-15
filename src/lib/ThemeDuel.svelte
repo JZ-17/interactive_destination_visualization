@@ -24,6 +24,7 @@
     {behind.city} at {behind.themes[gap].toFixed(1)}.
   </p>
 
+  <div class="board">
   <div class="names">
     <span>{a.city}</span><span class="unit">mentions per 1,000 words</span><span>{b.city}</span>
   </div>
@@ -45,19 +46,29 @@
   </ul>
 
   <p class="key">Bold is the theme that city over-indexes on, which isn’t always its longest bar.</p>
+  </div>
 </div>
 
 <style>
-  .duel { width: min(980px, 100%); margin-inline: auto; padding-inline: 16px; }
+  .duel { width: min(var(--scene-w), 100%); margin-inline: auto; padding-inline: 16px; }
+  /* Set as the scene's heading, like every other scene's. */
   .headline {
     max-width: 30ch;
-    margin: 0 auto 30px;
+    margin: 0;
     font-family: var(--display);
-    font-size: clamp(1.4rem, 3vw, 2.1rem);
-    line-height: 1.16;
-    text-align: center;
+    font-size: var(--scene-h2);
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+    text-wrap: balance;
   }
   .headline strong { font-weight: 700; }
+  .board {
+    margin-top: 28px;
+    padding: var(--card-pad);
+    border-radius: var(--card-radius);
+    background: #fff;
+    box-shadow: var(--card-shadow);
+  }
   .names {
     display: grid;
     grid-template-columns: 1fr auto 1fr;
@@ -87,7 +98,7 @@
   .track.left { justify-content: flex-end; }
   .fill { display: block; height: 100%; border-radius: 0 4px 4px 0; transition: width 0.45s ease; }
   .left .fill { border-radius: 4px 0 0 4px; }
-  .key { margin-top: 12px; font-size: 0.78rem; color: var(--text-secondary); text-align: center; }
+  .key { margin-top: 14px; font-size: 0.78rem; color: var(--text-secondary); text-align: center; }
 
   @media (prefers-reduced-motion: reduce) {
     .fill { transition: none; }

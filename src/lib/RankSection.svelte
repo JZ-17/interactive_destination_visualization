@@ -1,11 +1,15 @@
 <script>
   /**
-   * Rank the 50, where the journey lands: all fifty on one theme.
+   * Rank the 50, where the journey lands: all fifty on one theme, or on one
+   * selling move.
    *
-   * The theme is the route's (the themes scene above can open one here), so
-   * this section only reports a change of theme through `ontheme`.
+   * The mode, theme and move are the route's; this section reports changes
+   * through `onby`, `ontheme` and `onvoice`. A selling move is scored in
+   * standard deviations from the fifty-city average, so it runs below zero
+   * where a theme rate cannot.
    *
-   *   theme chips   --SORT---->  strip, standing line, summary, list
+   *   mode toggle   --SWAP---->  which chips show, and the measure
+   *   chips         --SORT---->  strip, standing line, summary, list
    *   legend        --FILTER-->  strip + summary + list (removes a category)
    *   hover         --LINK---->  strip + list (highlight, nothing removed)
    *
@@ -14,15 +18,19 @@
    * with a neighbour each side, and the last one: the rows a reader looks for
    * in a ranking of fifty, without drawing all fifty.
    */
-  import { THEMES, axisById, rankCities, rankSummary, VOICE_TICKET } from './data.js';
+  import { THEMES, PERSONALITIES, VOICE_SHORT, axisById, rankCities, rankSummary, VOICE_TICKET } from './data.js';
   import RankRunway from './RankRunway.svelte';
 
   let {
     cities = [],
     dest = '',
     compare = '',
+    by = 'theme',
     theme = 'Food',
+    voice = 'The Braggart',
+    onby = () => {},
     ontheme = () => {},
+    onvoice = () => {},
     onpick = () => {}
   } = $props();
 
@@ -38,10 +46,18 @@
 
   let hoveredCity = $state(null);
 
-  let measure = $derived(axisById(`theme:${theme}`));
+  let isTheme = $derived(by === 'theme');
+  /** A selling move as a measure, shaped like the theme measures in data.js. */
+  const voiceMeasure = (p) => ({
+    id: `voice:${p}`,
+    label: p,
+    unit: 'standard deviations from the fifty-city average',
+    get: (c) => c.voice[p]
+  });
+  let measure = $derived(isTheme ? axisById(`theme:${theme}`) : voiceMeasure(voice));
   let filtered = $derived(cities.filter((c) => show[c.category]));
   let summary = $derived(rankSummary(filtered, measure));
-  const fmt = (v) => v.toFixed(1);
+  const fmt = (v) => (isTheme ? v.toFixed(1) : `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}`);
 
   // Ranks stay out of all fifty whatever is filtered, so a city's number never
   // changes under it; the filter only takes rows away.
@@ -66,13 +82,17 @@
       const at = sorted.findIndex((c) => c.city === name);
       if (at >= 0) for (let i = at - 1; i <= at + 1; i++) if (i >= 0 && i < sorted.length) keep.add(i);
     }
-    const max = Math.max(1e-9, measure.get(sorted[0]));
+    // Bars run from the lowest value shown, which is 0 for a theme rate and
+    // below zero for a selling move.
+    const max = measure.get(sorted[0]);
+    const min = Math.min(0, measure.get(sorted[sorted.length - 1]));
+    const span = Math.max(1e-9, max - min);
     const out = [];
     let prev = -1;
     for (const i of [...keep].sort((a, b) => a - b)) {
       if (i > prev + 1) out.push({ gap: true, key: `gap-${i}` });
       const c = sorted[i];
-      out.push({ key: c.city, c, value: measure.get(c), width: (measure.get(c) / max) * 100 });
+      out.push({ key: c.city, c, value: measure.get(c), width: ((measure.get(c) - min) / span) * 100 });
       prev = i;
     }
     return out;
@@ -81,18 +101,44 @@
 
 <section class="rank">
   <header>
-    <h2>Rank the 50</h2>
-    <p>Every tourism board, sorted by how much it talks about one theme.</p>
+    <div class="title-row">
+      <h2>Rank the 50</h2>
+      <div class="mode" role="group" aria-label="Rank by">
+        <button aria-pressed={isTheme} onclick={() => onby('theme')}>By theme</button>
+        <button aria-pressed={!isTheme} onclick={() => onby('personality')}>By personality</button>
+      </div>
+    </div>
+    <p>
+      {isTheme
+        ? 'Every tourism board, sorted by how much it talks about one theme.'
+        : 'Every tourism board, sorted by how hard it leans on one way of selling.'}
+    </p>
   </header>
 
-  <div class="themes" role="group" aria-label="Rank by theme">
-    {#each THEMES as t (t)}
-      <button aria-pressed={theme === t} onclick={() => ontheme(t)}>{t}</button>
-    {/each}
-  </div>
+  {#if isTheme}
+    <div class="themes" role="group" aria-label="Rank by theme">
+      {#each THEMES as t (t)}
+        <button aria-pressed={theme === t} onclick={() => ontheme(t)}>{t}</button>
+      {/each}
+    </div>
+  {:else}
+    <div class="themes" role="group" aria-label="Rank by selling move">
+      {#each PERSONALITIES as p (p)}
+        <button aria-pressed={voice === p} onclick={() => onvoice(p)} title={VOICE_SHORT[p]}>{p.replace(/^The /, '')}</button>
+      {/each}
+    </div>
+  {/if}
 
-  <p class="standing" aria-live="polite">On {theme}, {heldLine} mentions per 1,000 words.</p>
+  <p class="standing" aria-live="polite">
+    {#if isTheme}
+      On {theme}, {heldLine} mentions per 1,000 words.
+    {:else}
+      On {voice}’s move, {heldLine} standard deviations from the average site.
+    {/if}
+  </p>
 
+  <!-- The ranking itself on the same white card as every other chart. -->
+  <div class="board">
   <RankRunway
     cities={filtered}
     {measure}
@@ -115,7 +161,7 @@
   {#if summary}
     <p class="summary" aria-live="polite">
       {summary.leader.city} leads at {fmt(measure.get(summary.leader))}. The median of these {summary.n} is {fmt(summary.median)}.
-      {#if measure.get(summary.lowest[0]) === 0}
+      {#if isTheme && measure.get(summary.lowest[0]) === 0}
         {summary.lowest.length === 1 ? `${summary.lowest[0].city} never mentions it.` : `${summary.lowest.length} never mention it.`}
       {/if}
     </p>
@@ -155,21 +201,35 @@
     {compare ? `Click a city to compare it with ${dest} instead.` : `Click a city to compare it with ${dest}.`}
     Ranks are out of all 50, and ties share one.
   </p>
+  </div>
 </section>
 
 <style>
-  .rank { width: min(980px, 100%); margin-inline: auto; padding-inline: 16px; }
-  h2 { font-family: var(--display); font-size: clamp(1.6rem, 3.2vw, 2.4rem); font-weight: 400; letter-spacing: -0.01em; line-height: 1.1; }
-  header p { margin-top: 4px; max-width: 66ch; font-size: 1rem; line-height: 1.5; color: var(--text-secondary); }
+  .rank { width: min(var(--scene-w), 100%); margin-inline: auto; padding-inline: 16px; }
+  .board {
+    --surface: #fff;
+    margin-top: 20px;
+    padding: var(--card-pad);
+    border-radius: var(--card-radius);
+    background: #fff;
+    box-shadow: var(--card-shadow);
+  }
+  .title-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; }
+  /* Two linked pills: the one choice of what to rank by. */
+  .mode { display: inline-flex; padding: 3px; border-radius: 999px; background: #fff; box-shadow: inset 0 0 0 1px #dfe5ef; }
+  .mode button { padding: 7px 16px; border-radius: 999px; background: transparent; color: var(--text-secondary); font-size: 0.88rem; box-shadow: none; }
+  .mode button[aria-pressed='true'] { background: var(--text-primary); color: #fff; }
+  h2 { font-family: var(--display); font-size: var(--scene-h2); font-weight: 400; letter-spacing: -0.01em; line-height: 1.1; }
+  header p { margin-top: 8px; max-width: 62ch; font-size: 1rem; line-height: 1.5; color: var(--text-secondary); }
   .themes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 20px; }
   .themes button { font-size: 0.88rem; padding: 7px 14px; border-radius: 999px; background: #fff; }
   .themes button[aria-pressed='true'] { background: var(--text-primary); }
-  .standing { margin: 22px 0 6px; font-family: var(--display); font-size: clamp(1.25rem, 2.6vw, 1.8rem); line-height: 1.2; text-wrap: balance; }
+  .standing { margin: 24px 0 0; font-family: var(--display); font-size: clamp(1.25rem, 2.6vw, 1.8rem); line-height: 1.2; text-wrap: balance; }
 
   .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 8px; }
   .legend button {
     display: inline-flex; align-items: center; gap: 8px;
-    padding: 5px 12px; border-radius: 999px; background: #fff;
+    padding: 5px 12px; border-radius: 999px; background: #fff; box-shadow: inset 0 0 0 1px #dfe5ef;
     color: var(--text-primary); font-size: 0.85rem;
   }
   .legend button[aria-pressed='false'] { opacity: 0.45; }

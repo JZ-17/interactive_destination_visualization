@@ -114,9 +114,9 @@
 </section>
 
 <style>
-  .profile { width: min(980px, 100%); margin-inline: auto; padding-inline: 16px; }
-  h2 { font-family: var(--display); font-size: clamp(1.6rem, 3.2vw, 2.4rem); font-weight: 400; letter-spacing: -0.01em; line-height: 1.1; text-wrap: balance; }
-  .lede { margin-top: 6px; color: var(--text-secondary); max-width: 60ch; }
+  .profile { width: min(var(--scene-w), 100%); margin-inline: auto; padding-inline: 16px; }
+  h2 { font-family: var(--display); font-size: var(--scene-h2); font-weight: 400; letter-spacing: -0.01em; line-height: 1.1; text-wrap: balance; }
+  .lede { margin-top: 8px; color: var(--text-secondary); max-width: 62ch; line-height: 1.5; }
 
   /* One grid template shared by the header and every row, so the columns line
      up: name and rate, the strip and its words, the rank alone at the right. */
@@ -128,11 +128,11 @@
   /* Everything under the subtitle sits on one white card, so the strips read
      as one instrument rather than lines loose on the page. */
   .board {
-    margin-top: 24px;
-    padding: clamp(16px, 2.6vw, 28px) clamp(16px, 2.8vw, 32px) clamp(14px, 2.2vw, 22px);
-    border-radius: 20px;
+    margin-top: 28px;
+    padding: var(--card-pad);
+    border-radius: var(--card-radius);
     background: #fff;
-    box-shadow: 0 1px 2px rgba(25, 30, 59, 0.05), 0 8px 28px rgba(25, 30, 59, 0.07);
+    box-shadow: var(--card-shadow);
   }
   .head { padding: 0 0 6px; font-size: 0.76rem; color: var(--text-muted); }
   .ends { display: flex; justify-content: space-between; }
